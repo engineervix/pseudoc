@@ -1,5 +1,8 @@
 # README
 
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/engineervix/pseudoc)
+[![CI/CD](https://github.com/engineervix/pseudoc/actions/workflows/main.yml/badge.svg)](https://github.com/engineervix/pseudoc/actions/workflows/main.yml)
+
 ## Resources
 
 ### Project structure
