@@ -1,7 +1,7 @@
 default:
     just --list
 
-# Create a new release with commit-and-tag-version (requires global installation: npm i -g commit-and-tag-version) (args optional, e.g. --release-as 0.1.0)
+# 📦 Create a new release with commit-and-tag-version (requires global installation: npm i -g commit-and-tag-version) (args optional, e.g. --release-as 0.1.0)
 release *ARGS:
     #!/usr/bin/env sh
     if ! command -v commit-and-tag-version > /dev/null 2>&1; then
@@ -34,3 +34,11 @@ release-notes:
     count == 1 { print }' "$changelog_path" >> "$release_notes_path"
 
     echo "Release notes extracted to $release_notes_path"
+
+# 🧪 Run all tests with verbose output
+test:
+    go test -v ./...
+
+# 🔨 Build for multiple platforms using the build script
+build:
+    build/multi_platform.sh
