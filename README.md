@@ -13,3 +13,9 @@
 - https://boyter.org/posts/how-to-start-go-project-2023/
 - https://medium.com/@juno.the.programmer/initiate-a-go-project-fad483cfb8f0
 - https://www.oreilly.com/library/view/powerful-command-line-applications/9781680509311/
+
+### Third-party packages
+
+- https://github.com/qax-os/excelize
+- https://github.com/gomutex/godocx
+- https://github.com/johnfercher/maroto
