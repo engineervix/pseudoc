@@ -16,6 +16,7 @@
 
 ### Third-party packages
 
+- https://github.com/brianvoe/gofakeit
 - https://github.com/qax-os/excelize
 - https://github.com/gomutex/godocx
 - https://github.com/johnfercher/maroto
