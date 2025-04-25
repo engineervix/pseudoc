@@ -4,30 +4,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
+
+	"github.com/engineervix/pseudoc/internal/config"
+	"github.com/engineervix/pseudoc/internal/generator"
 )
 
 // TODO: figure out how to automagically update this whenenever I run `just release`
 const version = "0.1.0"
-
-// Supported Document Types
-const (
-	DocTypePDF  = "pdf"
-	DocTypeDOCX = "docx"
-	DocTypeXLSX = "xlsx"
-)
-
-// CLI Options
-type Options struct {
-	OutputDir string
-	Filename  string
-	Count     int
-	Pages     int
-	Sheets    int
-	Size      string
-	Seed      int64
-}
 
 func main() {
 	if err := run(os.Args); err != nil {
@@ -56,77 +42,98 @@ func run(args []string) error {
 		return nil
 	}
 
+	// Initialize config with defaults
+	cfg := config.DefaultConfig()
+
 	// Determine document type from command
 	docType, err := parseDocumentType(command)
 	if err != nil {
 		return err
 	}
+	cfg.DocType = docType
 
 	// parse the remaining options
-	options, err := parseOptions(args[2:])
-	if err != nil {
+	if err := parseOptions(args[2:], &cfg); err != nil {
 		return err
 	}
 
-	return executeCommand(docType, options)
+	// Validate configuration
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
+	// Initialise random seed if provided
+	if cfg.Seed != 0 {
+		rand.New(rand.NewSource(cfg.Seed))
+	}
+
+	return generateDocuments(&cfg)
 }
 
 func parseDocumentType(command string) (string, error) {
 	switch command {
 	case "pdf":
-		return DocTypePDF, nil
+		return config.DocTypePDF, nil
 	case "docx", "word":
-		return DocTypeDOCX, nil
+		return config.DocTypeDOCX, nil
 	case "xlsx", "spreadsheet", "sheet":
-		return DocTypeXLSX, nil
+		return config.DocTypeXLSX, nil
 	case "random":
 		// for now, let's just return pdf
-		return DocTypePDF, nil
+		return config.DocTypePDF, nil
 	default:
 		return "", fmt.Errorf("unknown document type: %s", command)
 	}
 }
 
-func parseOptions(args []string) (Options, error) {
+func parseOptions(args []string, cfg *config.Config) error {
 	// Create a new FlagSet
 	flagSet := flag.NewFlagSet("options", flag.ContinueOnError)
 
 	// Let's define the options
-	options := Options{}
-	flagSet.StringVar(&options.OutputDir, "output-dir", ".", "Directory to store output files")
-	flagSet.StringVar(&options.Filename, "filename", "", "Base filename (will append format extension)")
-	flagSet.IntVar(&options.Count, "count", 1, "Number of documents to generate")
-	flagSet.IntVar(&options.Pages, "pages", 1, "For DOCX/PDF: Number of pages")
-	flagSet.IntVar(&options.Sheets, "sheets", 1, "For XLSX: Number of sheets")
-	flagSet.StringVar(&options.Size, "size", "", "Target file size (supports KB, MB, GB)")
-	flagSet.Int64Var(&options.Seed, "seed", 0, "Set random seed for reproducble output")
+	flagSet.StringVar(&cfg.OutputDir, "output-dir", ".", "Directory to store output files")
+	flagSet.StringVar(&cfg.Filename, "filename", "", "Base filename (will append format extension)")
+	flagSet.IntVar(&cfg.Count, "count", 1, "Number of documents to generate")
+	flagSet.IntVar(&cfg.Pages, "pages", 1, "For DOCX/PDF: Number of pages")
+	flagSet.IntVar(&cfg.Sheets, "sheets", 1, "For XLSX: Number of sheets")
+	flagSet.StringVar(&cfg.Size, "size", "", "Target file size (supports KB, MB, GB)")
+	flagSet.Int64Var(&cfg.Seed, "seed", 0, "Set random seed for reproducble output")
 
 	// Parse the flags
-	if err := flagSet.Parse(args); err != nil {
-		return Options{}, err
-	}
-
-	// Validate options
-	if options.Count < 1 {
-		return Options{}, errors.New("count must be at least 1")
-	}
-
-	fmt.Println("------ Debugging -------")
-	fmt.Println("Here are the selected options:")
-	fmt.Printf("%#v\n", options)
-	fmt.Println("------------------------")
-	return options, nil
+	return flagSet.Parse(args)
 }
 
-func executeCommand(docType string, options Options) error {
-	// For now, we print some statements
-	fmt.Printf("Generating %d %s document(s)\n", options.Count, docType)
-	fmt.Printf("Output directory: %s\n", options.OutputDir)
-	if options.Filename != "" {
-		fmt.Printf("Base filename: %s\n", options.Filename)
+func generateDocuments(cfg *config.Config) error {
+	// Get the generator for this document type
+	gen, err := generator.GetGenerator(cfg.DocType)
+	if err != nil {
+		return err
 	}
 
-	fmt.Println("Document generation not yet implemented")
+	fmt.Printf("Generating %d %s document(s)\n", cfg.Count, cfg.DocType)
+
+	// Generate the requested number of documents
+	for i := 0; i < cfg.Count; i++ {
+		// Get the output filename
+		filename := cfg.GenerateFileName(i)
+		fmt.Printf("Creating %s...\n", filename)
+
+		// Create the output file
+		file, err := os.Create(filename)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+
+		// Generate the document
+		if err := gen.Generate(file, cfg); err != nil {
+			file.Close()
+			return fmt.Errorf("document generation failed: %w", err)
+		}
+
+		file.Close()
+	}
+
+	fmt.Printf("Successfully generated %d document(s)\n", cfg.Count)
 	return nil
 }
 
