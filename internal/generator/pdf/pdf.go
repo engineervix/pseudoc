@@ -40,17 +40,14 @@ func (g *Generator) Generate(w io.Writer, cfg *appconfig.Config) error {
 	// Create maroto instance
 	m := maroto.New(marotoCfg)
 
-	// Generate content based on the number of pages requested
+	// Generate exactly the requested number of pages
 	for pageNum := 1; pageNum <= cfg.Pages; pageNum++ {
 		// Add a new page for each page after the first
 		if pageNum > 1 {
-			// Create and add a new page
 			m.AddPages(page.New())
 		}
 
-		if err := g.addPage(m, pageNum, cfg); err != nil {
-			return fmt.Errorf("failed to add page %d: %w", pageNum, err)
-		}
+		g.addSimplePage(m, pageNum)
 	}
 
 	// Generate the PDF and write to the provided writer
@@ -63,170 +60,34 @@ func (g *Generator) Generate(w io.Writer, cfg *appconfig.Config) error {
 	return err
 }
 
-// addPage adds a single page with placeholder content to the PDF
-func (g *Generator) addPage(m core.Maroto, pageNum int, cfg *appconfig.Config) error {
-	// Add page header
-	g.addHeader(m, pageNum)
+// Remove the old addPage method since we're not using page-based generation anymore
 
-	// Add some paragraphs of Lorem Ipsum text
-	paragraphCount := rand.Intn(4) + 2 // 2-5 paragraphs per page
-	for i := 0; i < paragraphCount; i++ {
-		g.addParagraph(m)
-	}
+// addSimplePage adds minimal content to a page - just a heading and a paragraph
+func (g *Generator) addSimplePage(m core.Maroto, pageNum int) {
+	// Page title
+	pageTitle := fmt.Sprintf("Page %d - %s", pageNum, content.GenerateTitle())
+	m.AddRow(20,
+		col.New(12).Add(
+			text.New(pageTitle, props.Text{
+				Top:   5,
+				Style: fontstyle.Bold,
+				Size:  14,
+			}),
+		),
+	)
 
-	// Occasionally add a table or list
-	if rand.Float32() < 0.3 { // 30% chance
-		if rand.Float32() < 0.5 {
-			g.addTable(m)
-		} else {
-			g.addList(m)
-		}
-	}
-
-	// Add some spacing at the end
+	// Spacing after title
 	m.AddRow(10)
 
-	return nil
-}
-
-// addHeader adds a header section to the page
-func (g *Generator) addHeader(m core.Maroto, pageNum int) {
-	// Main title (only on first page)
-	if pageNum == 1 {
-		m.AddRow(20,
-			col.New(12).Add(
-				text.New("Pseudoc Generated Document", props.Text{
-					Top:   5,
-					Style: fontstyle.Bold,
-					Align: align.Center,
-					Size:  16,
-				}),
-			),
-		)
-
-		m.AddRow(5) // spacing
-	}
-
-	// Page subtitle
-	subtitle := fmt.Sprintf("Page %d - %s", pageNum, content.GenerateTitle())
-	m.AddRow(15,
-		col.New(12).Add(
-			text.New(subtitle, props.Text{
-				Top:   3,
-				Style: fontstyle.Bold,
-				Size:  12,
-			}),
-		),
-	)
-
-	m.AddRow(5) // spacing after header
-}
-
-// addParagraph adds a paragraph of Lorem Ipsum text
-func (g *Generator) addParagraph(m core.Maroto) {
+	// Single paragraph of Lorem Ipsum text
 	paragraphText := content.GenerateParagraph(rand.Intn(100) + 50) // 50-150 words
-
-	m.AddRow(25,
+	m.AddRow(30,
 		col.New(12).Add(
 			text.New(paragraphText, props.Text{
-				Top:   3,
+				Top:   5,
 				Align: align.Left,
-				Size:  10,
-			}),
-		),
-	)
-
-	m.AddRow(5) // spacing between paragraphs
-}
-
-// addTable adds a simple table with placeholder data
-func (g *Generator) addTable(m core.Maroto) {
-	// Table header
-	m.AddRow(15,
-		col.New(3).Add(
-			text.New("Item", props.Text{
-				Top:   3,
-				Style: fontstyle.Bold,
-				Size:  10,
-			}),
-		),
-		col.New(6).Add(
-			text.New("Description", props.Text{
-				Top:   3,
-				Style: fontstyle.Bold,
-				Size:  10,
-			}),
-		),
-		col.New(3).Add(
-			text.New("Value", props.Text{
-				Top:   3,
-				Style: fontstyle.Bold,
-				Align: align.Right,
-				Size:  10,
-			}),
-		),
-	)
-
-	// Table rows
-	rowCount := rand.Intn(5) + 3 // 3-7 rows
-	for i := 0; i < rowCount; i++ {
-		item := content.GenerateWord()
-		description := content.GenerateSentence(rand.Intn(8) + 3) // 3-10 words
-		value := fmt.Sprintf("$%.2f", rand.Float64()*1000)
-
-		m.AddRow(12,
-			col.New(3).Add(
-				text.New(item, props.Text{
-					Top:  2,
-					Size: 9,
-				}),
-			),
-			col.New(6).Add(
-				text.New(description, props.Text{
-					Top:  2,
-					Size: 9,
-				}),
-			),
-			col.New(3).Add(
-				text.New(value, props.Text{
-					Top:   2,
-					Align: align.Right,
-					Size:  9,
-				}),
-			),
-		)
-	}
-
-	m.AddRow(10) // spacing after table
-}
-
-// addList adds a bulleted list
-func (g *Generator) addList(m core.Maroto) {
-	// List title
-	m.AddRow(15,
-		col.New(12).Add(
-			text.New("Key Points:", props.Text{
-				Top:   3,
-				Style: fontstyle.Bold,
 				Size:  11,
 			}),
 		),
 	)
-
-	// List items
-	itemCount := rand.Intn(4) + 3 // 3-6 items
-	for i := 0; i < itemCount; i++ {
-		listItem := fmt.Sprintf("• %s", content.GenerateSentence(rand.Intn(10)+5)) // 5-14 words
-
-		m.AddRow(12,
-			col.New(12).Add(
-				text.New(listItem, props.Text{
-					Top:  2,
-					Size: 10,
-				}),
-			),
-		)
-	}
-
-	m.AddRow(10) // spacing after list
 }
