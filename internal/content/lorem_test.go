@@ -165,3 +165,89 @@ func TestGenerateListItems(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateDate(t *testing.T) {
+	date := GenerateDate()
+
+	if date == "" {
+		t.Error("Expected non-empty date")
+	}
+
+	// Check date format (YYYY-MM-DD)
+	expectedLen := 10 // "2006-01-02" format
+	if len(date) != expectedLen {
+		t.Errorf("Expected date length %d, got %d", expectedLen, len(date))
+	}
+
+	// Simple format check - should contain two hyphens
+	hyphenCount := 0
+	for _, char := range date {
+		if char == '-' {
+			hyphenCount++
+		}
+	}
+	if hyphenCount != 2 {
+		t.Errorf("Expected 2 hyphens in date format, got %d in %s", hyphenCount, date)
+	}
+}
+
+func TestGenerateNumber(t *testing.T) {
+	tests := []struct {
+		name string
+		min  int
+		max  int
+	}{
+		{"normal range", 10, 100},
+		{"same values", 50, 50},
+		{"invalid range", 100, 50}, // max < min, should be handled
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			number := GenerateNumber(tt.min, tt.max)
+
+			if number == "" {
+				t.Error("Expected non-empty number")
+			}
+
+			// Should be a valid number string (basic check)
+			if len(number) == 0 {
+				t.Error("Expected non-empty number string")
+			}
+		})
+	}
+}
+
+func TestGeneratePercentage(t *testing.T) {
+	percentage := GeneratePercentage()
+
+	if percentage == "" {
+		t.Error("Expected non-empty percentage")
+	}
+
+	if !strings.HasSuffix(percentage, "%") {
+		t.Error("Expected percentage to end with %")
+	}
+
+	// Should contain a decimal point
+	if !strings.Contains(percentage, ".") {
+		t.Error("Expected percentage to contain decimal point")
+	}
+}
+
+func TestGenerateCurrency(t *testing.T) {
+	currency := GenerateCurrency()
+
+	if currency == "" {
+		t.Error("Expected non-empty currency")
+	}
+
+	if !strings.HasPrefix(currency, "$") {
+		t.Error("Expected currency to start with $")
+	}
+
+	// Should contain a decimal point
+	if !strings.Contains(currency, ".") {
+		t.Error("Expected currency to contain decimal point")
+	}
+}

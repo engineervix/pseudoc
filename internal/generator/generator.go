@@ -6,6 +6,7 @@ import (
 
 	"github.com/engineervix/pseudoc/internal/config"
 	"github.com/engineervix/pseudoc/internal/generator/pdf"
+	"github.com/engineervix/pseudoc/internal/generator/xlsx"
 )
 
 // Generator defines the interface for document generators
@@ -22,7 +23,7 @@ func GetGenerator(docType string) (Generator, error) {
 	case config.DocTypeDOCX:
 		return &MockGenerator{DocType: "DOCX"}, nil
 	case config.DocTypeXLSX:
-		return &MockGenerator{DocType: "XLSX"}, nil
+		return xlsx.New(), nil
 	default:
 		return nil, fmt.Errorf("unsupported document type: %s", docType)
 	}

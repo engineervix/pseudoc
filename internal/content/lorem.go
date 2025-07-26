@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 )
 
 // Standard Lorem Ipsum words
@@ -42,6 +43,24 @@ var sampleTitles = []string{
 	"Quality Assurance Report",
 	"Strategic Planning Document",
 	"Operational Guidelines",
+	"Market Research Summary",
+	"Financial Analysis",
+	"Risk Assessment",
+	"Compliance Report",
+	"User Experience Study",
+}
+
+// Sample company names for more realistic table data
+var sampleCompanies = []string{
+	"Acme Corporation", "Global Industries", "Tech Solutions Inc", "Innovation Labs",
+	"Future Systems", "Dynamic Enterprises", "Prime Industries", "Alpha Corp",
+	"Beta Solutions", "Gamma Technologies", "Delta Consulting", "Epsilon Group",
+}
+
+// Sample product names
+var sampleProducts = []string{
+	"Widget Pro", "SuperTool", "FlexiSystem", "PowerBase", "SmartLink",
+	"UltraKit", "MegaPack", "TurboMax", "OptimalCore", "PrecisionEdge",
 }
 
 // GenerateWord returns a single random Lorem Ipsum word
@@ -126,15 +145,17 @@ func GenerateTableData(rows, cols int) [][]string {
 		data[i] = make([]string, cols)
 		for j := 0; j < cols; j++ {
 			// Generate different types of data based on column
-			switch j % 4 {
+			switch j % 5 {
 			case 0:
-				data[i][j] = GenerateWord()
+				data[i][j] = sampleCompanies[rand.Intn(len(sampleCompanies))]
 			case 1:
-				data[i][j] = GenerateSentence(rand.Intn(6) + 2)
+				data[i][j] = sampleProducts[rand.Intn(len(sampleProducts))]
 			case 2:
-				data[i][j] = fmt.Sprintf("$%.2f", rand.Float64()*1000)
+				data[i][j] = fmt.Sprintf("$%.2f", rand.Float64()*10000+100)
 			case 3:
-				data[i][j] = fmt.Sprintf("%d%%", rand.Intn(100))
+				data[i][j] = fmt.Sprintf("%d%%", rand.Intn(100)+1)
+			case 4:
+				data[i][j] = GenerateSentence(rand.Intn(6) + 2)
 			}
 		}
 	}
@@ -154,4 +175,34 @@ func GenerateListItems(count int) []string {
 	}
 
 	return items
+}
+
+// GenerateDate returns a random date string
+func GenerateDate() string {
+	start := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Now()
+
+	delta := end.Sub(start)
+	randomDuration := time.Duration(rand.Int63n(int64(delta)))
+	randomTime := start.Add(randomDuration)
+
+	return randomTime.Format("2006-01-02")
+}
+
+// GenerateNumber returns a random number as string with specified precision
+func GenerateNumber(min, max int) string {
+	if max <= min {
+		max = min + 100
+	}
+	return fmt.Sprintf("%d", rand.Intn(max-min)+min)
+}
+
+// GeneratePercentage returns a random percentage
+func GeneratePercentage() string {
+	return fmt.Sprintf("%.1f%%", rand.Float64()*100)
+}
+
+// GenerateCurrency returns a random currency amount
+func GenerateCurrency() string {
+	return fmt.Sprintf("$%.2f", rand.Float64()*10000+10)
 }
