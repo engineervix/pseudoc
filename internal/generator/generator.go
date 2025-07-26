@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/engineervix/pseudoc/internal/config"
+	"github.com/engineervix/pseudoc/internal/generator/docx"
 	"github.com/engineervix/pseudoc/internal/generator/pdf"
 	"github.com/engineervix/pseudoc/internal/generator/xlsx"
 )
@@ -21,36 +22,10 @@ func GetGenerator(docType string) (Generator, error) {
 	case config.DocTypePDF:
 		return pdf.New(), nil
 	case config.DocTypeDOCX:
-		return &MockGenerator{DocType: "DOCX"}, nil
+		return docx.New(), nil
 	case config.DocTypeXLSX:
 		return xlsx.New(), nil
 	default:
 		return nil, fmt.Errorf("unsupported document type: %s", docType)
 	}
-}
-
-// MockGenerator is a placeholder implementation that doesn't actually generate real documents
-// It will be replaced with real implementations as we develop them
-type MockGenerator struct {
-	DocType string
-}
-
-// Generate implements the Generator interface but just writes a placeholder message
-func (g *MockGenerator) Generate(w io.Writer, cfg *config.Config) error {
-	msg := fmt.Sprintf(
-		"This is a mock %s document\nPages/Sheets: %d\n",
-		g.DocType,
-		getPageCount(g.DocType, cfg),
-	)
-
-	_, err := w.Write([]byte(msg))
-	return err
-}
-
-// getPageCount returns the appropriate page or sheet count based on document type
-func getPageCount(docType string, cfg *config.Config) int {
-	if docType == "XLSX" {
-		return cfg.Sheets
-	}
-	return cfg.Pages
 }

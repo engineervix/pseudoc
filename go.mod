@@ -3,6 +3,7 @@ module github.com/engineervix/pseudoc
 go 1.24.5
 
 require (
+	github.com/gomutex/godocx v0.1.5
 	github.com/johnfercher/maroto/v2 v2.3.1
 	github.com/xuri/excelize/v2 v2.9.1
 )
