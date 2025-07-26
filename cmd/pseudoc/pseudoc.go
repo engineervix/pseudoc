@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/engineervix/pseudoc/internal/config"
 	"github.com/engineervix/pseudoc/internal/generator"
@@ -45,32 +46,38 @@ func run(args []string) error {
 	// Initialize config with defaults
 	cfg := config.DefaultConfig()
 
-	// Determine document type from command
-	docType, err := parseDocumentType(command)
+	// parse the remaining options first to get seed
+	if err := parseOptions(args[2:], &cfg); err != nil {
+		return err
+	}
+
+	// Create random number generator
+	var rng *rand.Rand
+	if cfg.Seed != 0 {
+		rng = rand.New(rand.NewSource(cfg.Seed))
+	} else {
+		rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
+
+	// Determine document type from command using the seeded generator
+	docType, err := parseDocumentType(command, rng)
 	if err != nil {
 		return err
 	}
 	cfg.DocType = docType
 
-	// parse the remaining options
-	if err := parseOptions(args[2:], &cfg); err != nil {
-		return err
-	}
+	// Track if random was used for user feedback
+	isRandom := command == "random"
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
 
-	// Initialise random seed if provided
-	if cfg.Seed != 0 {
-		rand.New(rand.NewSource(cfg.Seed))
-	}
-
-	return generateDocuments(&cfg)
+	return generateDocuments(&cfg, isRandom, command)
 }
 
-func parseDocumentType(command string) (string, error) {
+func parseDocumentType(command string, rng *rand.Rand) (string, error) {
 	switch command {
 	case "pdf":
 		return config.DocTypePDF, nil
@@ -79,8 +86,9 @@ func parseDocumentType(command string) (string, error) {
 	case "xlsx", "spreadsheet", "sheet":
 		return config.DocTypeXLSX, nil
 	case "random":
-		// for now, let's just return pdf
-		return config.DocTypePDF, nil
+		// Randomly select one of the available document types
+		types := []string{config.DocTypePDF, config.DocTypeDOCX, config.DocTypeXLSX}
+		return types[rng.Intn(len(types))], nil
 	default:
 		return "", fmt.Errorf("unknown document type: %s", command)
 	}
@@ -103,13 +111,17 @@ func parseOptions(args []string, cfg *config.Config) error {
 	return flagSet.Parse(args)
 }
 
-func generateDocuments(cfg *config.Config) error {
+func generateDocuments(cfg *config.Config, selectedRandomly bool, originalCommand string) error {
 	// Get the generator for this document type
 	gen, err := generator.GetGenerator(cfg.DocType)
 	if err != nil {
 		return err
 	}
 
+	// Show what we're generating
+	if selectedRandomly {
+		fmt.Printf("Randomly selected: %s\n", cfg.DocType)
+	}
 	fmt.Printf("Generating %d %s document(s)\n", cfg.Count, cfg.DocType)
 
 	// Generate the requested number of documents
