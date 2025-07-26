@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"time"
 
 	"github.com/johnfercher/maroto/v2"
 	"github.com/johnfercher/maroto/v2/pkg/components/col"
@@ -35,6 +36,12 @@ func (g *Generator) Generate(w io.Writer, cfg *appconfig.Config) error {
 	marotoCfg := config.NewBuilder().
 		WithPageSize(pagesize.A4).
 		WithOrientation(orientation.Vertical).
+		WithCreator("Pseudoc - Lorem Ipsum for Documents", false).
+		WithTitle("A document for testing purposes", false).
+		WithAuthor("Pseudoc v1.0", false).
+		WithSubject("Generated PDF Document", false).
+		WithKeywords("test, pdf, pseudoc, lorem ipsum", false).
+		WithCreationDate(time.Now()).
 		Build()
 
 	// Create maroto instance
@@ -59,8 +66,6 @@ func (g *Generator) Generate(w io.Writer, cfg *appconfig.Config) error {
 	_, err = w.Write(document.GetBytes())
 	return err
 }
-
-// Remove the old addPage method since we're not using page-based generation anymore
 
 // addSimplePage adds minimal content to a page - just a heading and a paragraph
 func (g *Generator) addSimplePage(m core.Maroto, pageNum int) {

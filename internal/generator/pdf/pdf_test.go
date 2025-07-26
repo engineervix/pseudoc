@@ -78,7 +78,7 @@ func TestPDFGenerator_MultiplePages(t *testing.T) {
 		t.Error("Expected PDF content for multi-page document, got empty buffer")
 	}
 
-	content := string(buf.Bytes())
+	content := buf.String()
 	// Check that it's a PDF
 	if !strings.HasPrefix(content, "%PDF") {
 		t.Error("Generated content doesn't appear to be a valid PDF")
