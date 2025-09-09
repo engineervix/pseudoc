@@ -85,7 +85,11 @@ func (s *Server) setupRoutes() {
 
 	// Document generation endpoints
 	docHandler := handlers.NewDocumentHandler(&s.config)
+
+	// GET endpoint for simple document generation
 	api.GET("/generate/:type", docHandler.GenerateGET)
+
+	// POST endpoint for advanced document generation
 	api.POST("/generate", docHandler.GeneratePOST)
 
 	// Server info endpoint
@@ -94,6 +98,16 @@ func (s *Server) setupRoutes() {
 	// Metrics endpoint (if enabled)
 	if s.config.EnableMetrics {
 		s.echo.GET("/metrics", handlers.NewMetricsHandler())
+	}
+
+	// CORS preflight handling for the generate endpoint
+	if s.config.EnableCORS {
+		api.OPTIONS("/generate", func(c echo.Context) error {
+			return c.NoContent(http.StatusNoContent)
+		})
+		api.OPTIONS("/generate/:type", func(c echo.Context) error {
+			return c.NoContent(http.StatusNoContent)
+		})
 	}
 }
 
