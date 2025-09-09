@@ -48,6 +48,11 @@ func run(args []string) error {
 	case "version", "-v", "--version":
 		printVersionInfo()
 		return nil
+	case "serve", "server":
+		return runServer(args[2:]) // Pass remaining args to server command
+	case "serve-help", "server-help":
+		printServerUsage()
+		return nil
 	}
 
 	// Initialize CLI config with defaults
@@ -277,6 +282,7 @@ func printUsage() {
 	fmt.Println("  docx, word                   Generate Word document")
 	fmt.Println("  xlsx, spreadsheet, sheet     Generate Excel spreadsheet")
 	fmt.Println("  random                       Generate random document type")
+	fmt.Println("  serve, server                Start HTTP API server")
 	fmt.Println("  version, -v, --version       Show version information")
 	fmt.Println("  help, -h, --help             Show this help message")
 	fmt.Println()
@@ -316,6 +322,10 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("  # Silent generation for scripts")
 	fmt.Println("  pseudoc pdf --quiet --output-dir /tmp")
+	fmt.Println()
+	fmt.Println("  # Start HTTP API server")
+	fmt.Println("  pseudoc serve")
+	fmt.Println("  pseudoc serve --host 0.0.0.0 --port 3000")
 	fmt.Println()
 
 	fmt.Println("For more information, visit: https://github.com/engineervix/pseudoc")

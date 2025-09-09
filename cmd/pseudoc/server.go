@@ -1,0 +1,116 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"time"
+
+	"github.com/engineervix/pseudoc/internal/config"
+	"github.com/engineervix/pseudoc/internal/server"
+)
+
+// runServer handles the server command
+func runServer(args []string) error {
+	// Initialize server config with defaults
+	cfg := config.DefaultServerConfig()
+
+	// Parse server-specific options
+	if err := parseServerOptions(args, &cfg); err != nil {
+		return enhanceError(err, "parsing server options")
+	}
+
+	// Validate server configuration
+	if err := cfg.ValidateServer(); err != nil {
+		return enhanceError(err, "validating server configuration")
+	}
+
+	// Create and start server
+	srv := server.New(cfg)
+
+	fmt.Printf("pseudoc server starting...\n")
+
+	// Start will block until shutdown signal is received
+	return srv.Start()
+}
+
+// parseServerOptions parses command line options for the server
+func parseServerOptions(args []string, cfg *config.ServerConfig) error {
+	// Create a new FlagSet for server options
+	flagSet := flag.NewFlagSet("server", flag.ContinueOnError)
+	flagSet.Usage = func() {}
+
+	// Server connection settings
+	flagSet.StringVar(&cfg.Host, "host", cfg.Host, "Server host address")
+	flagSet.IntVar(&cfg.Port, "port", cfg.Port, "Server port")
+
+	// Feature toggles
+	flagSet.BoolVar(&cfg.EnableCORS, "cors", cfg.EnableCORS, "Enable CORS middleware")
+	flagSet.BoolVar(&cfg.EnableLogging, "logging", cfg.EnableLogging, "Enable request logging")
+	flagSet.BoolVar(&cfg.EnableMetrics, "metrics", cfg.EnableMetrics, "Enable metrics endpoint")
+
+	// Limits and timeouts
+	flagSet.IntVar(&cfg.RateLimit, "rate-limit", cfg.RateLimit, "Requests per minute (0 = no limit)")
+	flagSet.Int64Var(&cfg.MaxFileSize, "max-file-size", cfg.MaxFileSize, "Maximum file size in bytes")
+
+	// Parse timeout as string then convert
+	var timeoutStr string
+	flagSet.StringVar(&timeoutStr, "timeout", cfg.RequestTimeout.String(), "Request timeout (e.g., 30s, 5m)")
+	flagSet.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Log level (debug, info, warn, error)")
+
+	// Parse the flags
+	if err := flagSet.Parse(args); err != nil {
+		return fmt.Errorf("invalid server flag: %w\n\nUse 'pseudoc help' to see available options", err)
+	}
+
+	// Parse timeout if provided
+	if timeoutStr != cfg.RequestTimeout.String() {
+		if timeout, err := time.ParseDuration(timeoutStr); err != nil {
+			return fmt.Errorf("invalid timeout format '%s': %w\n\nExamples: 30s, 5m, 1h", timeoutStr, err)
+		} else {
+			cfg.RequestTimeout = timeout
+		}
+	}
+
+	return nil
+}
+
+// printServerUsage prints usage information for the server command
+func printServerUsage() {
+	fmt.Println("pseudoc serve - Start HTTP API server")
+	fmt.Println()
+	fmt.Println("USAGE:")
+	fmt.Println("  pseudoc serve [options]")
+	fmt.Println()
+	fmt.Println("SERVER OPTIONS:")
+	fmt.Println("  --host HOST                  Server host address (default: localhost)")
+	fmt.Println("  --port PORT                  Server port (default: 8080)")
+	fmt.Println("  --timeout DURATION           Request timeout (default: 30s)")
+	fmt.Println("  --max-file-size BYTES        Maximum generated file size (default: 104857600 = 100MB)")
+	fmt.Println("  --rate-limit N               Requests per minute (default: 60, 0 = no limit)")
+	fmt.Println("  --log-level LEVEL            Log level: debug, info, warn, error (default: info)")
+	fmt.Println()
+	fmt.Println("FEATURE FLAGS:")
+	fmt.Println("  --cors=true/false            Enable CORS middleware (default: true)")
+	fmt.Println("  --logging=true/false         Enable request logging (default: true)")
+	fmt.Println("  --metrics=true/false         Enable metrics endpoint (default: false)")
+	fmt.Println()
+	fmt.Println("EXAMPLES:")
+	fmt.Println("  # Start server with defaults")
+	fmt.Println("  pseudoc serve")
+	fmt.Println()
+	fmt.Println("  # Start on all interfaces with custom port")
+	fmt.Println("  pseudoc serve --host 0.0.0.0 --port 3000")
+	fmt.Println()
+	fmt.Println("  # Start with custom timeout and no rate limiting")
+	fmt.Println("  pseudoc serve --timeout 60s --rate-limit 0")
+	fmt.Println()
+	fmt.Println("  # Start with metrics enabled")
+	fmt.Println("  pseudoc serve --metrics --log-level debug")
+	fmt.Println()
+	fmt.Println("ENDPOINTS:")
+	fmt.Println("  GET  /health                 Health check")
+	fmt.Println("  GET  /api/v1/info            Server information")
+	fmt.Println("  GET  /api/v1/generate/{type} Generate document (To be implemented)")
+	fmt.Println("  POST /api/v1/generate        Generate document (To be implemented)")
+	fmt.Println("  GET  /metrics                Metrics (if --metrics enabled)")
+}
