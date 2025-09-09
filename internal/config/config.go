@@ -28,10 +28,13 @@ type Config struct {
 	// Document-specific options
 	Pages  int
 	Sheets int
-	Size   string
 
 	// Random seed for reproducible generation
 	Seed int64
+
+	// CLI behaviour flags
+	Quiet  bool
+	DryRun bool
 }
 
 func DefaultConfig() Config {
@@ -41,22 +44,27 @@ func DefaultConfig() Config {
 		Count:     1,
 		Pages:     1,
 		Sheets:    1,
+		Quiet:     false,
+		DryRun:    false,
 	}
 }
 
 func (c *Config) Validate() error {
 	if c.Count < 1 {
-		return errors.New("Count must be at least 1")
+		return errors.New("count must be at least 1")
 	}
 	if c.Pages < 1 {
-		return errors.New("Pages must be at least 1")
+		return errors.New("pages must be at least 1")
 	}
 	if c.Sheets < 1 {
-		return errors.New("Sheets must be at least 1")
+		return errors.New("sheets must be at least 1")
 	}
 
-	if err := validateOutputDir(c.OutputDir); err != nil {
-		return err
+	// Skip directory validation for dry-run
+	if !c.DryRun {
+		if err := validateOutputDir(c.OutputDir); err != nil {
+			return err
+		}
 	}
 
 	return nil
