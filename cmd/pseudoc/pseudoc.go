@@ -50,8 +50,8 @@ func run(args []string) error {
 		return nil
 	}
 
-	// Initialize config with defaults
-	cfg := config.DefaultConfig()
+	// Initialize CLI config with defaults
+	cfg := config.DefaultCLIConfig()
 
 	// parse the remaining options first to get seed
 	if err := parseOptions(args[2:], &cfg); err != nil {
@@ -73,11 +73,14 @@ func run(args []string) error {
 	}
 	cfg.DocType = docType
 
+	// Update the BaseFilename in core config from CLI filename
+	cfg.SetBaseFilename()
+
 	// Track if random was used for user feedback
 	isRandom := command == "random"
 
 	// Validate configuration
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.ValidateCLI(); err != nil {
 		return enhanceError(err, "validating configuration")
 	}
 
@@ -101,22 +104,24 @@ func parseDocumentType(command string, rng *rand.Rand) (string, error) {
 	}
 }
 
-func parseOptions(args []string, cfg *config.Config) error {
+func parseOptions(args []string, cfg *config.CLIConfig) error {
 	// Create a new FlagSet with custom error handling
 	flagSet := flag.NewFlagSet("options", flag.ContinueOnError)
 
 	// Suppress default error output since we'll provide our own
 	flagSet.Usage = func() {}
 
-	// Let's define the options
-	flagSet.StringVar(&cfg.OutputDir, "output-dir", ".", "Directory to store output files")
-	flagSet.StringVar(&cfg.Filename, "filename", "", "Base filename (will append format extension)")
-	flagSet.IntVar(&cfg.Count, "count", 1, "Number of documents to generate")
-	flagSet.IntVar(&cfg.Pages, "pages", 1, "For DOCX/PDF: Number of pages")
-	flagSet.IntVar(&cfg.Sheets, "sheets", 1, "For XLSX: Number of sheets")
-	flagSet.Int64Var(&cfg.Seed, "seed", 0, "Set random seed for reproducible output")
-	flagSet.BoolVar(&cfg.Quiet, "quiet", false, "Suppress output for scripting")
-	flagSet.BoolVar(&cfg.DryRun, "dry-run", false, "Preview what would be generated without creating files")
+	// Define CLI-specific options
+	flagSet.StringVar(&cfg.OutputDir, "output-dir", cfg.OutputDir, "Directory to store output files")
+	flagSet.StringVar(&cfg.Filename, "filename", cfg.Filename, "Base filename (will append format extension)")
+	flagSet.BoolVar(&cfg.Quiet, "quiet", cfg.Quiet, "Suppress output for scripting")
+	flagSet.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Preview what would be generated without creating files")
+
+	// Define core document generation options
+	flagSet.IntVar(&cfg.Count, "count", cfg.Count, "Number of documents to generate")
+	flagSet.IntVar(&cfg.Pages, "pages", cfg.Pages, "For DOCX/PDF: Number of pages")
+	flagSet.IntVar(&cfg.Sheets, "sheets", cfg.Sheets, "For XLSX: Number of sheets")
+	flagSet.Int64Var(&cfg.Seed, "seed", cfg.Seed, "Set random seed for reproducible output")
 
 	// Parse the flags
 	if err := flagSet.Parse(args); err != nil {
@@ -126,7 +131,7 @@ func parseOptions(args []string, cfg *config.Config) error {
 	return nil
 }
 
-func generateDocuments(cfg *config.Config, selectedRandomly bool, originalCommand string) error {
+func generateDocuments(cfg *config.CLIConfig, selectedRandomly bool, originalCommand string) error {
 	// Get the generator for this document type
 	gen, err := generator.GetGenerator(cfg.DocType)
 	if err != nil {
@@ -166,8 +171,8 @@ func generateDocuments(cfg *config.Config, selectedRandomly bool, originalComman
 			return enhanceFileError(err, filename, "create")
 		}
 
-		// Generate the document
-		if err := gen.Generate(file, cfg); err != nil {
+		// Generate the document - pass the core Config to the generator
+		if err := gen.Generate(file, &cfg.Config); err != nil {
 			file.Close()
 			return fmt.Errorf("document generation failed for %s: %w", filename, err)
 		}
@@ -186,7 +191,7 @@ func generateDocuments(cfg *config.Config, selectedRandomly bool, originalComman
 	return nil
 }
 
-func handleDryRun(cfg *config.Config, selectedRandomly bool) error {
+func handleDryRun(cfg *config.CLIConfig, selectedRandomly bool) error {
 	fmt.Println("DRY RUN MODE - No files will be created")
 	fmt.Println("=======================================")
 

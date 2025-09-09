@@ -2,9 +2,6 @@ package config
 
 import (
 	"errors"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -15,40 +12,38 @@ const (
 	DocTypeXLSX = "xlsx"
 )
 
-// Config holds the application configuration
+// Config holds the core document generation configuration
+// This is shared between CLI and server modes
 type Config struct {
 	// Document type to generate
 	DocType string
 
-	//  Output options
-	OutputDir string
-	Filename  string
-	Count     int
-
 	// Document-specific options
-	Pages  int
-	Sheets int
+	Pages  int // For PDF/DOCX
+	Sheets int // For XLSX
 
 	// Random seed for reproducible generation
 	Seed int64
 
-	// CLI behaviour flags
-	Quiet  bool
-	DryRun bool
+	// Generation options
+	Count int // Number of documents to generate
+
+	// Base filename (without extension, can be empty for auto-generation)
+	BaseFilename string
 }
 
+// DefaultConfig returns a Config with sensible defaults
 func DefaultConfig() Config {
 	return Config{
-		DocType:   DocTypePDF,
-		OutputDir: ".",
-		Count:     1,
-		Pages:     1,
-		Sheets:    1,
-		Quiet:     false,
-		DryRun:    false,
+		DocType:      DocTypePDF,
+		Pages:        1,
+		Sheets:       1,
+		Count:        1,
+		BaseFilename: "", // Auto-generated
 	}
 }
 
+// Validate validates the core document generation configuration
 func (c *Config) Validate() error {
 	if c.Count < 1 {
 		return errors.New("count must be at least 1")
@@ -60,84 +55,37 @@ func (c *Config) Validate() error {
 		return errors.New("sheets must be at least 1")
 	}
 
-	// Skip directory validation for dry-run
-	if !c.DryRun {
-		if err := validateOutputDir(c.OutputDir); err != nil {
-			return err
-		}
+	// Validate document type
+	switch c.DocType {
+	case DocTypePDF, DocTypeDOCX, DocTypeXLSX:
+		// Valid types
+	default:
+		return errors.New("invalid document type")
 	}
 
 	return nil
 }
 
-// Checks if the output directory exists and creates it if needed
-func validateOutputDir(dir string) error {
-	// check if directory exists
-	info, err := os.Stat(dir)
-	if err == nil {
-		// path exists, check if it's a directory
-		if !info.IsDir() {
-			return errors.New("output path exists but isn't a directory")
-		}
-		return nil
+// GenerateBaseFilename creates a base filename if none is provided
+func (c *Config) GenerateBaseFilename() string {
+	if c.BaseFilename != "" {
+		return c.BaseFilename
 	}
 
-	// If the error isn't that the directory doesn't exist, return the error
-
-	// NOTE: New code should use this form ...
-	if !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-
-	// ... the alternative (older, pre Go 1.13) way of doing it is
-	// if !os.IsNotExist(err) {
-	// 	return err
-	// }
-
-	// Create the directory
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
-	return nil
+	// Generate timestamp-based filename
+	return "pseudoc_" + time.Now().Format("2006-01-02_15-04-05")
 }
 
-// Creates a filename for the document
-func (c *Config) GenerateFileName(index int) string {
-	base := c.Filename
-	if base == "" {
-		// NOTE: Go's date formatting uses a reference date (January 2, 2006 at 15:04:05 MST)
-		// as a template rather than format specifiers.
-		// The reference date was specifically chosen to be 01/02 03:04:05 PM '06 -0700
-		// (or in other formats, 1/2/2006 at 3:04:05PM in MST timezone).
-		// This was a cute way to use the sequence 1, 2, 3, 4, 5, 6, 7 to represent different date and time components:
-		// month(1), day(2), hour(3), minute(4), second(5), year(6), timezone(7).
-		// It's sometimes called the "magic date" among Go programmers because it seems odd at first,
-		// but becomes quite intuitive once you get used to it.
-		base = "pseudoc_" + time.Now().Format("2006-01-02_15-04-05")
-	}
-
-	// Add index suffix if adding multiple documents
-	// NOTE: in Go, character literals like 'a' are actually numeric values of type rune
-	// (which is an alias for int32), not a separate "char" type like in some other languages.
-	if c.Count > 1 {
-		base += "_" + string(rune('a'+index))
-	}
-
-	// Add extension based on document type
-	var ext string
+// GetFileExtension returns the appropriate file extension for the document type
+func (c *Config) GetFileExtension() string {
 	switch c.DocType {
 	case DocTypePDF:
-		ext = ".pdf"
+		return ".pdf"
 	case DocTypeDOCX:
-		ext = ".docx"
+		return ".docx"
 	case DocTypeXLSX:
-		ext = ".xlsx"
+		return ".xlsx"
 	default:
-		// use PDF as default
-		ext = ".pdf"
+		return ".pdf" // fallback
 	}
-
-	return filepath.Join(c.OutputDir, base+ext)
-
 }
