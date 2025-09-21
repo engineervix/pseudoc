@@ -104,17 +104,15 @@ examples:
     @echo "# Preview what would be generated (dry run):"
     @echo "  pseudoc pdf --count 3 --dry-run"
 
-# 🔍 Check code quality
-lint:
-    @echo "Running go vet..."
-    go vet ./...
-    @echo "Running go fmt check..."
-    @if [ -n "$$(go fmt ./...)" ]; then \
-        echo "Code is not formatted. Please run 'go fmt ./...'"; \
-        exit 1; \
-    fi
-    @echo "✅ Code quality checks passed"
-
-# 🎯 Format code
+# 🧹 Formats all Go source files in the project.
 fmt:
-    go fmt ./...
+    @echo "Formatting code..."
+    @go fmt ./...
+
+# 🔎 Vets the code for potential bugs and suspicious constructs.
+vet:
+    @echo "Vetting code..."
+    @go vet ./...
+
+# ✅ Runs both the formatter and the vet tool sequentially.
+check: fmt vet

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/engineervix/pseudoc/internal/config"
@@ -28,6 +29,35 @@ func runServer(args []string) error {
 	srv := server.New(cfg)
 
 	fmt.Printf("pseudoc server starting...\n")
+	fmt.Printf("Address: %s\n", cfg.GetAddress())
+	fmt.Printf("API Base: %s/api/v1\n", cfg.GetBaseURL())
+	fmt.Printf("Health: %s/health\n", cfg.GetBaseURL())
+
+	if cfg.EnableMetrics {
+		fmt.Printf("Metrics: %s/metrics\n", cfg.GetBaseURL())
+	}
+
+	fmt.Printf("Configuration:\n")
+	fmt.Printf("   • CORS: %v\n", cfg.EnableCORS)
+	fmt.Printf("   • Rate limit: ")
+	if cfg.RateLimit > 0 {
+		fmt.Printf("%d req/min\n", cfg.RateLimit)
+	} else {
+		fmt.Printf("disabled\n")
+	}
+	fmt.Printf("   • Request timeout: %v\n", cfg.RequestTimeout)
+	fmt.Printf("   • Max file size: %d MB\n", cfg.MaxFileSize/(1024*1024))
+	fmt.Printf("   • Log level: %s\n", cfg.LogLevel)
+	fmt.Printf("   • Logging: %v\n", cfg.EnableLogging)
+
+	fmt.Printf("\nExample API calls:\n")
+	fmt.Printf("   curl \"%s/api/v1/generate/pdf\"\n", cfg.GetBaseURL())
+	fmt.Printf("   curl \"%s/api/v1/generate/docx?pages=3&seed=42\"\n", cfg.GetBaseURL())
+	fmt.Printf("   curl -X POST \"%s/api/v1/generate\" \\\n", cfg.GetBaseURL())
+	fmt.Printf("        -H \"Content-Type: application/json\" \\\n")
+	fmt.Printf("        -d '{\"type\":\"pdf\",\"pages\":2,\"filename\":\"test\"}'\n")
+	fmt.Printf("\nPress Ctrl+C to stop the server\n")
+	fmt.Println(strings.Repeat("─", 50))
 
 	// Start will block until shutdown signal is received
 	return srv.Start()
@@ -104,13 +134,41 @@ func printServerUsage() {
 	fmt.Println("  # Start with custom timeout and no rate limiting")
 	fmt.Println("  pseudoc serve --timeout 60s --rate-limit 0")
 	fmt.Println()
-	fmt.Println("  # Start with metrics enabled")
+	fmt.Println("  # Start with metrics enabled and debug logging")
 	fmt.Println("  pseudoc serve --metrics --log-level debug")
 	fmt.Println()
+	fmt.Println("  # Start with higher rate limit for development")
+	fmt.Println("  pseudoc serve --rate-limit 300 --max-file-size 200000000") // 200MB
+	fmt.Println()
 	fmt.Println("ENDPOINTS:")
-	fmt.Println("  GET  /health                 Health check")
-	fmt.Println("  GET  /api/v1/info            Server information")
-	fmt.Println("  GET  /api/v1/generate/{type} Generate document (To be implemented)")
-	fmt.Println("  POST /api/v1/generate        Generate document (To be implemented)")
-	fmt.Println("  GET  /metrics                Metrics (if --metrics enabled)")
+	fmt.Println("  GET  /health                         Health check")
+	fmt.Println("  GET  /api/v1/info                    Server information")
+	fmt.Println("  GET  /api/v1/generate/{type}         Generate document with query params")
+	fmt.Println("       ?pages=N&sheets=N&seed=N&filename=NAME")
+	fmt.Println("  POST /api/v1/generate                Generate document with JSON body")
+	fmt.Println("       {\"type\":\"pdf\",\"pages\":3,\"seed\":42}")
+	fmt.Println("  GET  /metrics                        Server metrics (if --metrics enabled)")
+	fmt.Println()
+	fmt.Println("SUPPORTED DOCUMENT TYPES:")
+	fmt.Println("  • pdf        - PDF documents")
+	fmt.Println("  • docx       - Microsoft Word documents")
+	fmt.Println("  • xlsx       - Microsoft Excel spreadsheets")
+	fmt.Println("  • random     - Randomly selected document type")
+	fmt.Println()
+	fmt.Println("API EXAMPLES:")
+	fmt.Println("  # Generate a simple PDF")
+	fmt.Println("  curl \"http://localhost:8080/api/v1/generate/pdf\" -o document.pdf")
+	fmt.Println()
+	fmt.Println("  # Generate Word doc with 3 pages and custom filename")
+	fmt.Println("  curl \"http://localhost:8080/api/v1/generate/docx?pages=3&filename=report\" -o report.docx")
+	fmt.Println()
+	fmt.Println("  # Generate Excel with JSON payload")
+	fmt.Println("  curl -X POST \"http://localhost:8080/api/v1/generate\" \\")
+	fmt.Println("       -H \"Content-Type: application/json\" \\")
+	fmt.Println("       -d '{\"type\":\"xlsx\",\"sheets\":5,\"seed\":42}' -o data.xlsx")
+	fmt.Println()
+	fmt.Println("  # Get server info")
+	fmt.Println("  curl \"http://localhost:8080/api/v1/info\" | jq")
+	fmt.Println()
+	fmt.Printf("For more information, visit: https://github.com/engineervix/pseudoc\n")
 }
