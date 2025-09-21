@@ -17,8 +17,8 @@ const (
 	// RequestIDSeparator is the character used to separate parts of the request ID
 	RequestIDSeparator = "-"
 
-	// RequestIDTimestampModulo is used to generate a shorter timestamp component
-	RequestIDTimestampModulo = 1000
+	// RequestIDLength is the length of the random string component in the request ID
+	RequestIDLength = 8
 )
 
 // File naming constants

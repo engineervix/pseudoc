@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"net/http"
 	"os"
@@ -259,9 +260,17 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 	}
 }
 
-// generateRequestID creates a simple request ID
+// generateRequestID creates a secure request ID using timestamp and random string
 func generateRequestID() string {
-	return fmt.Sprintf("%d%s%d", time.Now().UnixNano(), config.RequestIDSeparator, time.Now().Unix()%config.RequestIDTimestampModulo)
+	// Generate cryptographically secure random bytes
+	b := make([]byte, config.RequestIDLength)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based ID if crypto/rand fails
+		return fmt.Sprintf("%d%s%d", time.Now().Unix(), config.RequestIDSeparator, time.Now().UnixNano()%1000)
+	}
+
+	// Create ID with timestamp and random component for uniqueness and readability
+	return fmt.Sprintf("%d%s%x", time.Now().Unix(), config.RequestIDSeparator, b)
 }
 
 // Start starts the HTTP server with graceful shutdown
