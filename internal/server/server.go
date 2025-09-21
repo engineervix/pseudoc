@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -189,6 +191,22 @@ func (sm *ServerMetrics) HasSufficientSamples() bool {
 	return sm.Performance.HasSufficientSamples()
 }
 
+// isLogLevelEnabled checks if a log with a given level should be shown based on server config.
+func isLogLevelEnabled(level, configLevel string) bool {
+	levels := map[string]int{
+		"debug": 0,
+		"info":  1,
+		"warn":  2,
+		"error": 3,
+	}
+	configPriority, ok := levels[configLevel]
+	if !ok {
+		configPriority = levels["info"] // Default to info
+	}
+	levelPriority := levels[level]
+	return levelPriority >= configPriority
+}
+
 // New creates a new server instance with the given configuration
 func New(cfg config.ServerConfig) *Server {
 	e := echo.New()
@@ -272,16 +290,64 @@ func (s *Server) setupMiddleware() {
 
 	// Request logging middleware (if enabled)
 	if s.config.EnableLogging {
-		logFormat := `{"time":"${time_rfc3339_nano}","method":"${method}","uri":"${uri}","remote_ip":"${remote_ip}",` +
-			`"status":${status},"latency_human":"${latency_human}","bytes_in":${bytes_in},"bytes_out":${bytes_out}}` + "\n"
+		s.echo.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+			LogStatus:        true,
+			LogURI:           true,
+			LogMethod:        true,
+			LogRemoteIP:      true,
+			LogHost:          true,
+			LogLatency:       true,
+			LogError:         true,
+			LogRequestID:     true,
+			LogResponseSize:  true,
+			LogContentLength: true,
+			LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+				// Determine log level based on status code
+				var level string
+				switch {
+				case v.Status >= 500:
+					level = "error"
+				case v.Status >= 400:
+					level = "warn"
+				default:
+					level = "info"
+				}
 
-		if s.config.LogLevel == "debug" {
-			logFormat = `{"time":"${time_rfc3339_nano}","id":"${id}","method":"${method}","uri":"${uri}","remote_ip":"${remote_ip}",` +
-				`"status":${status},"latency_human":"${latency_human}","bytes_in":${bytes_in},"bytes_out":${bytes_out},"error":"${error}"}` + "\n"
-		}
+				// Skip logging if the level is below the configured threshold
+				if !isLogLevelEnabled(level, s.config.LogLevel) {
+					return nil
+				}
 
-		s.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-			Format: logFormat,
+				logEntry := map[string]interface{}{
+					"time":          v.StartTime.Format(time.RFC3339Nano),
+					"level":         level,
+					"id":            v.RequestID,
+					"remote_ip":     v.RemoteIP,
+					"host":          v.Host,
+					"method":        v.Method,
+					"uri":           v.URI,
+					"status":        v.Status,
+					"latency_human": v.Latency.String(),
+					"bytes_in":      v.ContentLength,
+					"bytes_out":     v.ResponseSize,
+				}
+
+				if v.Error != nil {
+					logEntry["error"] = v.Error.Error()
+				}
+
+				jsonBytes, err := json.Marshal(logEntry)
+				if err != nil {
+					log.Printf("Error marshaling log entry: %v", err)
+					return nil
+				}
+
+				// Write directly to stdout
+				os.Stdout.Write(jsonBytes)
+				os.Stdout.Write([]byte("\n"))
+
+				return nil
+			},
 		}))
 	}
 
