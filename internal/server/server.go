@@ -12,12 +12,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/engineervix/pseudoc/internal/config"
+	"github.com/engineervix/pseudoc/internal/server/handlers"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/time/rate"
-
-	"github.com/engineervix/pseudoc/internal/config"
-	"github.com/engineervix/pseudoc/internal/server/handlers"
 )
 
 // Server wraps the Echo server with configuration and metrics
@@ -198,6 +197,33 @@ func New(cfg config.ServerConfig) *Server {
 	e.HideBanner = true
 	e.HidePort = true
 
+	// Custom IP extractor to handle reverse proxies (e.g., Cloudflare, Traefik)
+	e.IPExtractor = func(req *http.Request) string {
+		// Cloudflare header
+		if ip := req.Header.Get("CF-Connecting-IP"); ip != "" {
+			return ip
+		}
+
+		// Other common proxy headers
+		if ip := req.Header.Get("X-Real-IP"); ip != "" {
+			return ip
+		}
+
+		// Use Echo's robust X-Forwarded-For extractor, trusting common private networks.
+		// This correctly handles proxy chains and avoids spoofed headers.
+		extractor := echo.ExtractIPFromXFFHeader(
+			echo.TrustLoopback(true),
+			echo.TrustLinkLocal(true),
+			echo.TrustPrivateNet(true),
+		)
+		if ip := extractor(req); ip != "" {
+			return ip
+		}
+
+		// Default to RemoteAddr as the final fallback
+		return req.RemoteAddr
+	}
+
 	// Custom error handler
 	e.HTTPErrorHandler = customHTTPErrorHandler
 
@@ -246,11 +272,11 @@ func (s *Server) setupMiddleware() {
 
 	// Request logging middleware (if enabled)
 	if s.config.EnableLogging {
-		logFormat := `{"time":"${time_rfc3339_nano}","method":"${method}","uri":"${uri}",` +
+		logFormat := `{"time":"${time_rfc3339_nano}","method":"${method}","uri":"${uri}","remote_ip":"${remote_ip}",` +
 			`"status":${status},"latency_human":"${latency_human}","bytes_in":${bytes_in},"bytes_out":${bytes_out}}` + "\n"
 
 		if s.config.LogLevel == "debug" {
-			logFormat = `{"time":"${time_rfc3339_nano}","id":"${id}","method":"${method}","uri":"${uri}",` +
+			logFormat = `{"time":"${time_rfc3339_nano}","id":"${id}","method":"${method}","uri":"${uri}","remote_ip":"${remote_ip}",` +
 				`"status":${status},"latency_human":"${latency_human}","bytes_in":${bytes_in},"bytes_out":${bytes_out},"error":"${error}"}` + "\n"
 		}
 

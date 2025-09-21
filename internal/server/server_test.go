@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/engineervix/pseudoc/internal/config"
 	"github.com/engineervix/pseudoc/internal/server/handlers"
+	"github.com/labstack/echo/v4"
 )
 
 func TestServer_Integration_GenerateEndpoints(t *testing.T) {
@@ -272,6 +274,90 @@ func TestServer_Integration_CORS(t *testing.T) {
 		if expectedValue != "" && value != expectedValue {
 			t.Errorf("Expected CORS header %s to be %s, got %s", header, expectedValue, value)
 		}
+	}
+}
+
+func TestServer_Integration_IPExtractor(t *testing.T) {
+	cfg := config.DefaultServerConfig()
+	cfg.EnableLogging = false
+	cfg.RateLimit = 0 // Disable rate limiting for this test
+
+	server := New(cfg)
+	server.setupMiddleware()
+
+	// Add a test endpoint that returns the detected IP
+	server.echo.GET("/test-ip", func(c echo.Context) error {
+		return c.String(http.StatusOK, c.RealIP())
+	})
+
+	testCases := []struct {
+		name       string
+		headers    map[string]string
+		expectedIP string
+	}{
+		{
+			name: "Cloudflare IP",
+			headers: map[string]string{
+				"CF-Connecting-IP": "198.51.100.1",
+				"X-Real-IP":        "203.0.113.1",
+				"X-Forwarded-For":  "192.0.2.1",
+			},
+			expectedIP: "198.51.100.1",
+		},
+		{
+			name: "X-Real-IP",
+			headers: map[string]string{
+				"X-Real-IP":       "203.0.113.1",
+				"X-Forwarded-For": "192.0.2.1",
+			},
+			expectedIP: "203.0.113.1",
+		},
+		{
+			name: "X-Forwarded-For",
+			headers: map[string]string{
+				"X-Forwarded-For": "192.0.2.1, 203.0.113.1",
+			},
+			expectedIP: "192.0.2.1",
+		},
+		{
+			name:       "Direct IP",
+			headers:    map[string]string{},
+			expectedIP: "192.0.2.1", // Default from httptest
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test-ip", nil)
+			for key, value := range tc.headers {
+				req.Header.Set(key, value)
+			}
+			rec := httptest.NewRecorder()
+			server.echo.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Errorf("Expected status 200, got %d", rec.Code)
+			}
+
+			// httptest sets RemoteAddr to 192.0.2.1:1234 by default
+			body := rec.Body.String()
+			expected := tc.expectedIP
+
+			if tc.name == "Direct IP" {
+				ip, _, err := net.SplitHostPort(body)
+				if err != nil {
+					// If no port, body is just the IP
+					ip = body
+				}
+				if ip != expected {
+					t.Errorf("Expected IP '%s', got '%s'", expected, ip)
+				}
+			} else {
+				if body != expected {
+					t.Errorf("Expected IP '%s', got '%s'", expected, body)
+				}
+			}
+		})
 	}
 }
 
