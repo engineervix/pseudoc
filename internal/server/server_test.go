@@ -117,6 +117,38 @@ func TestServer_Integration_GenerateEndpoints(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Special handling for the random GET endpoint to test redirects
+			if tc.name == "GET random document" {
+				// Create a test server
+				testServer := httptest.NewServer(server.echo)
+				defer testServer.Close()
+
+				// Create a client that follows redirects
+				client := &http.Client{
+					CheckRedirect: func(req *http.Request, via []*http.Request) error {
+						// Allow redirects
+						return nil
+					},
+				}
+
+				// Make the request to the test server
+				res, err := client.Get(testServer.URL + tc.path)
+				if err != nil {
+					t.Fatalf("Failed to make request to test server: %v", err)
+				}
+				defer res.Body.Close()
+
+				// The final response after redirect should be 200 OK
+				if res.StatusCode != http.StatusOK {
+					t.Errorf("Expected status 200 after redirect, got %d", res.StatusCode)
+				}
+
+				// Check that we received a valid document
+				if res.ContentLength == 0 {
+					t.Errorf("Expected document content, got empty body")
+				}
+				return // End this test case here
+			}
 			var req *http.Request
 			if tc.body != "" {
 				req = httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))

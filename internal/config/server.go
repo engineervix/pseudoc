@@ -10,8 +10,9 @@ type ServerConfig struct {
 	Config // Embedded core config (used as defaults for API requests)
 
 	// Server settings
-	Host string // Server host (e.g., "0.0.0.0", "localhost")
-	Port int    // Server port (e.g., 8080)
+	Host        string // Server host (e.g., "0.0.0.0", "localhost")
+	Port        int    // Server port (e.g., 8080)
+	Environment string // Server environment (e.g., "development", "production")
 
 	// API behavior
 	CORSAllowedOrigins []string      // List of allowed CORS origins. If empty, CORS is disabled.
@@ -35,6 +36,7 @@ func DefaultServerConfig() ServerConfig {
 		Config:             DefaultConfig(),
 		Host:               "localhost",
 		Port:               8080,
+		Environment:        "development",
 		CORSAllowedOrigins: []string{"*"},
 		RequestTimeout:     30 * time.Second,
 		MaxFileSize:        100 * 1024 * 1024, // 100MB
@@ -62,6 +64,10 @@ func (c *ServerConfig) ValidateServer() error {
 
 	if c.Host == "" {
 		return fmt.Errorf("host cannot be empty")
+	}
+
+	if c.Environment != "development" && c.Environment != "production" {
+		return fmt.Errorf("environment must be 'development' or 'production', got '%s'", c.Environment)
 	}
 
 	if c.RequestTimeout <= 0 {

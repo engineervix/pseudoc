@@ -280,9 +280,31 @@ func (s *Server) setupMiddleware() {
 
 	// Rate limiting middleware (if enabled)
 	if s.config.RateLimit > 0 {
-		s.echo.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(
-			rate.Limit(float64(s.config.RateLimit) / 60.0), // Convert per-minute to per-second
-		)))
+		s.echo.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+			Skipper: func(c echo.Context) bool {
+				// Skip rate limiting for the random endpoint, as it only redirects.
+				// Use c.Request().URL.Path to get the actual path, not the route pattern.
+				return c.Request().URL.Path == "/api/v1/generate/random"
+			},
+			Store: middleware.NewRateLimiterMemoryStore(
+				rate.Limit(float64(s.config.RateLimit) / 60.0), // Convert per-minute to per-second
+			),
+			IdentifierExtractor: func(c echo.Context) (string, error) {
+				return c.RealIP(), nil
+			},
+			ErrorHandler: func(c echo.Context, err error) error {
+				return c.JSON(http.StatusForbidden, map[string]string{
+					"error":   "rate limit identifier error",
+					"message": "Could not identify the request source.",
+				})
+			},
+			DenyHandler: func(c echo.Context, identifier string, err error) error {
+				return c.JSON(http.StatusTooManyRequests, map[string]string{
+					"error":   "rate limit exceeded",
+					"message": "You have made too many requests. Please try again later.",
+				})
+			},
+		}))
 	}
 
 	// Metrics middleware - tracks requests
@@ -358,13 +380,19 @@ func (s *Server) setupMiddleware() {
 	s.echo.Use(middleware.BodyLimit(fmt.Sprintf("%d", s.config.MaxFileSize)))
 
 	// Security headers middleware
-	s.echo.Use(middleware.SecureWithConfig(middleware.SecureConfig{
-		XSSProtection:         "1; mode=block",
-		ContentTypeNosniff:    "nosniff",
-		XFrameOptions:         s.config.XFrameOptions,
-		HSTSMaxAge:            31536000, // 1 year
-		ContentSecurityPolicy: s.config.ContentSecurityPolicy,
-	}))
+	secureConfig := middleware.SecureConfig{
+		XSSProtection:      "1; mode=block",
+		ContentTypeNosniff: "nosniff",
+		XFrameOptions:      s.config.XFrameOptions,
+	}
+
+	// Apply stricter security settings in production
+	if s.config.Environment == "production" {
+		secureConfig.HSTSMaxAge = 31536000 // 1 year
+		secureConfig.ContentSecurityPolicy = s.config.ContentSecurityPolicy
+	}
+
+	s.echo.Use(middleware.SecureWithConfig(secureConfig))
 }
 
 // setupRoutes configures the API routes

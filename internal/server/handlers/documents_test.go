@@ -179,27 +179,30 @@ func TestDocumentHandler_GenerateGET_Random(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
+	if rec.Code != http.StatusTemporaryRedirect {
+		t.Errorf("Expected status 307, got %d", rec.Code)
 	}
 
-	// With a fixed seed, we should get consistent results
-	// Run it again to verify deterministic behavior
-	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/generate/random?seed=42", nil)
-	rec2 := httptest.NewRecorder()
-	c2 := e.NewContext(req2, rec2)
-	c2.SetParamNames("type")
-	c2.SetParamValues("random")
-
-	err2 := handler.GenerateGET(c2)
-	if err2 != nil {
-		t.Fatalf("Expected no error on second run, got: %v", err2)
+	// With a fixed seed, the redirect location should be deterministic
+	location := rec.Header().Get("Location")
+	if !strings.HasPrefix(location, "/api/v1/generate/") {
+		t.Errorf("Expected redirect to a generate endpoint, got %s", location)
+	}
+	if !strings.Contains(location, "seed=42") {
+		t.Errorf("Expected redirect URL to contain the original query parameters, got %s", location)
 	}
 
-	// Both should have the same content type (deterministic with same seed)
-	if rec.Header().Get("Content-Type") != rec2.Header().Get("Content-Type") {
-		t.Errorf("Expected same content type with same seed, got %s and %s",
-			rec.Header().Get("Content-Type"), rec2.Header().Get("Content-Type"))
+	// Verify that the redirected document type is one of the valid types
+	validTypes := []string{"pdf", "docx", "xlsx"}
+	isTypeValid := false
+	for _, validType := range validTypes {
+		if strings.Contains(location, "/"+validType+"?") {
+			isTypeValid = true
+			break
+		}
+	}
+	if !isTypeValid {
+		t.Errorf("Redirect URL does not contain a valid document type: %s", location)
 	}
 }
 

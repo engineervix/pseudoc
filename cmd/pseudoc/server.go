@@ -77,6 +77,7 @@ func parseServerOptions(args []string, cfg *config.ServerConfig) error {
 	// Server connection settings
 	flagSet.StringVar(&cfg.Host, "host", cfg.Host, "Server host address")
 	flagSet.IntVar(&cfg.Port, "port", cfg.Port, "Server port")
+	flagSet.StringVar(&cfg.Environment, "env", cfg.Environment, "Server environment (development or production)")
 
 	// Feature toggles
 	var corsOrigins string
@@ -127,6 +128,7 @@ func printServerUsage() {
 	fmt.Println("SERVER OPTIONS:")
 	fmt.Println("  --host HOST                  Server host address (default: localhost)")
 	fmt.Println("  --port PORT                  Server port (default: 8080)")
+	fmt.Println("  --env ENV                    Server environment: development, production (default: development)")
 	fmt.Println("  --timeout DURATION           Request timeout (default: 30s)")
 	fmt.Println("  --max-file-size BYTES        Maximum generated file size (default: 104857600 = 100MB)")
 	fmt.Println("  --rate-limit N               Requests per minute (default: 60, 0 = no limit)")
@@ -143,6 +145,9 @@ func printServerUsage() {
 	fmt.Println()
 	fmt.Println("  # Start on all interfaces with custom port")
 	fmt.Println("  pseudoc serve --host 0.0.0.0 --port 3000")
+	fmt.Println()
+	fmt.Println("  # Start in production mode")
+	fmt.Println("  pseudoc serve --env production")
 	fmt.Println()
 	fmt.Println("  # Start with custom timeout and no rate limiting")
 	fmt.Println("  pseudoc serve --timeout 60s --rate-limit 0")

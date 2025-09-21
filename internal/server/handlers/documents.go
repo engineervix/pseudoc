@@ -81,6 +81,7 @@ func (h *DocumentHandler) GenerateGET(c echo.Context) error {
 	}
 
 	// Handle random document type selection or validate type
+	originalDocType := docType
 	if err := h.processDocumentType(docType, &docConfig); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error:     "Invalid document type",
@@ -88,6 +89,13 @@ func (h *DocumentHandler) GenerateGET(c echo.Context) error {
 			Code:      http.StatusBadRequest,
 			RequestID: requestID,
 		})
+	}
+
+	// If the original type was "random", redirect to the specific type endpoint
+	if originalDocType == "random" {
+		// Build the redirect URL with the new type and existing query parameters
+		redirectURL := fmt.Sprintf("/api/v1/generate/%s?%s", docConfig.DocType, c.QueryString())
+		return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 	}
 
 	// Validate the final configuration
@@ -384,6 +392,7 @@ func (h *DocumentHandler) generateAndStream(c echo.Context, cfg *config.Config) 
 	// Set response headers
 	c.Response().Header().Set("Content-Type", h.getContentType(cfg.DocType))
 	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	c.Response().Header().Set("X-Pseudoc-Generated-Type", cfg.DocType)
 
 	// Set cache headers to prevent caching of generated documents
 	c.Response().Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
