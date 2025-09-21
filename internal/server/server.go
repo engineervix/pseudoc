@@ -282,9 +282,18 @@ func (s *Server) setupMiddleware() {
 	if s.config.RateLimit > 0 {
 		s.echo.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 			Skipper: func(c echo.Context) bool {
-				// Skip rate limiting for the random endpoint, as it only redirects.
-				// Use c.Request().URL.Path to get the actual path, not the route pattern.
-				return c.Request().URL.Path == "/api/v1/generate/random"
+				// Skip rate limiting for the random endpoint redirects, but apply it to actual generation
+				// The random endpoint only redirects (307) and doesn't consume server resources
+				path := c.Request().URL.Path
+				method := c.Request().Method
+
+				// Skip rate limiting for GET requests to /random that will redirect
+				if method == http.MethodGet && path == "/api/v1/generate/random" {
+					return true
+				}
+
+				// Apply rate limiting to all other endpoints (actual document generation)
+				return false
 			},
 			Store: middleware.NewRateLimiterMemoryStore(
 				rate.Limit(float64(s.config.RateLimit) / 60.0), // Convert per-minute to per-second

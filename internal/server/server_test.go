@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -338,6 +339,64 @@ func TestServer_Integration_CORS_Enabled(t *testing.T) {
 			t.Errorf("Expected CORS header %s to be %s, got %s", header, expectedValue, value)
 		}
 	}
+}
+
+func TestServer_Integration_RateLimit_Applied_Correctly(t *testing.T) {
+	cfg := config.DefaultServerConfig()
+	cfg.EnableLogging = false
+	cfg.RateLimit = 1 // Very low rate limit for testing
+
+	server := New(cfg)
+	server.setupMiddleware()
+	server.setupRoutes()
+
+	t.Run("RateLimit_DocumentGeneration", func(t *testing.T) {
+		// Test that actual document generation endpoints are rate limited
+		endpoint := "/api/v1/generate/pdf"
+
+		// Make multiple requests quickly to trigger rate limiting
+		for i := 0; i < 5; i++ {
+			req := httptest.NewRequest(http.MethodGet, endpoint, nil)
+			rec := httptest.NewRecorder()
+			server.echo.ServeHTTP(rec, req)
+
+			// After the first few requests, we should get rate limited
+			if i > 2 && rec.Code == http.StatusTooManyRequests {
+				// Verify the error response format
+				var errorResp map[string]string
+				if err := json.Unmarshal(rec.Body.Bytes(), &errorResp); err != nil {
+					t.Errorf("Failed to parse rate limit error response: %v", err)
+				}
+				if errorResp["error"] != "rate limit exceeded" {
+					t.Errorf("Expected rate limit error, got %s", errorResp["error"])
+				}
+				return // Test passed - rate limiting is working
+			}
+		}
+		t.Errorf("Expected rate limiting to be triggered for endpoint %s", endpoint)
+	})
+
+	t.Run("RateLimit_RandomRedirect_NotLimited", func(t *testing.T) {
+		// Test that random endpoint redirects are not rate limited
+		endpoint := "/api/v1/generate/random"
+
+		// Make multiple requests - should all get redirects, not rate limited
+		for i := 0; i < 5; i++ {
+			req := httptest.NewRequest(http.MethodGet, endpoint+"?seed="+fmt.Sprintf("%d", i), nil)
+			rec := httptest.NewRecorder()
+			server.echo.ServeHTTP(rec, req)
+
+			// Should get redirects, not rate limit errors
+			if rec.Code == http.StatusTooManyRequests {
+				t.Errorf("Random endpoint should not be rate limited on redirect, got rate limit error on request %d", i)
+				return
+			}
+			if rec.Code != http.StatusTemporaryRedirect {
+				t.Errorf("Expected redirect (307) for random endpoint, got %d", rec.Code)
+				return
+			}
+		}
+	})
 }
 
 func TestServer_Integration_IPExtractor(t *testing.T) {
