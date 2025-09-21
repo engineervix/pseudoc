@@ -37,7 +37,7 @@ func DefaultServerConfig() ServerConfig {
 		Host:               "localhost",
 		Port:               8080,
 		Environment:        "development",
-		CORSAllowedOrigins: []string{"*"},
+		CORSAllowedOrigins: []string{}, // Default to no CORS - must be explicitly configured
 		RequestTimeout:     30 * time.Second,
 		MaxFileSize:        100 * 1024 * 1024, // 100MB
 		RateLimit:          60,                // 60 requests per minute

@@ -269,7 +269,38 @@ func TestServer_Integration_HealthAndInfo(t *testing.T) {
 	}
 }
 
-func TestServer_Integration_CORS(t *testing.T) {
+func TestServer_Integration_CORS_Disabled_By_Default(t *testing.T) {
+	cfg := config.DefaultServerConfig()
+	cfg.EnableLogging = false
+	cfg.RateLimit = 0 // Disable rate limiting for tests
+	// Note: CORSAllowedOrigins should be empty by default
+
+	server := New(cfg)
+	server.setupMiddleware()
+	server.setupRoutes()
+
+	// Test that CORS headers are not present when CORS is disabled
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/generate/pdf", nil)
+	req.Header.Set("Origin", "http://example.com")
+
+	rec := httptest.NewRecorder()
+	server.echo.ServeHTTP(rec, req)
+
+	// Should not have CORS headers when CORS is disabled
+	corsHeaders := []string{
+		"Access-Control-Allow-Origin",
+		"Access-Control-Allow-Methods",
+		"Access-Control-Allow-Headers",
+	}
+
+	for _, header := range corsHeaders {
+		if value := rec.Header().Get(header); value != "" {
+			t.Errorf("Expected no CORS header %s when CORS is disabled, got %s", header, value)
+		}
+	}
+}
+
+func TestServer_Integration_CORS_Enabled(t *testing.T) {
 	cfg := config.DefaultServerConfig()
 	cfg.EnableLogging = false
 	cfg.CORSAllowedOrigins = []string{"http://example.com"}
