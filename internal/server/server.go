@@ -278,7 +278,7 @@ func (s *Server) setupMiddleware() {
 // setupRoutes configures the API routes
 func (s *Server) setupRoutes() {
 	// Health check endpoint
-	s.echo.GET("/health", handlers.NewHealthHandler())
+	s.echo.GET("/health", handlers.NewHealthHandler(s.metrics))
 
 	// API v1 group
 	api := s.echo.Group("/api/v1")

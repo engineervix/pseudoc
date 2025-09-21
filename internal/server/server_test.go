@@ -195,6 +195,22 @@ func TestServer_Integration_HealthAndInfo(t *testing.T) {
 		t.Errorf("Expected health status 'ok', got %s", healthResp.Status)
 	}
 
+	if healthResp.Version == "" {
+		t.Errorf("Expected version to be set, got empty string")
+	}
+
+	if healthResp.Uptime == "" {
+		t.Errorf("Expected uptime to be set, got empty string")
+	}
+
+	if healthResp.System == nil {
+		t.Fatalf("Expected system info to be set, got nil")
+	}
+
+	if healthResp.System.GoroutineCount == 0 {
+		t.Errorf("Expected goroutine count to be > 0, got 0")
+	}
+
 	// Test info endpoint
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/info", nil)
 	rec = httptest.NewRecorder()
