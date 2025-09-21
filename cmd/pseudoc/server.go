@@ -38,7 +38,12 @@ func runServer(args []string) error {
 	}
 
 	fmt.Printf("Configuration:\n")
-	fmt.Printf("   • CORS: %v\n", cfg.EnableCORS)
+	fmt.Printf("   • CORS: ")
+	if len(cfg.CORSAllowedOrigins) > 0 {
+		fmt.Printf("enabled for %s\n", strings.Join(cfg.CORSAllowedOrigins, ", "))
+	} else {
+		fmt.Println("disabled")
+	}
 	fmt.Printf("   • Rate limit: ")
 	if cfg.RateLimit > 0 {
 		fmt.Printf("%d req/min\n", cfg.RateLimit)
@@ -74,7 +79,8 @@ func parseServerOptions(args []string, cfg *config.ServerConfig) error {
 	flagSet.IntVar(&cfg.Port, "port", cfg.Port, "Server port")
 
 	// Feature toggles
-	flagSet.BoolVar(&cfg.EnableCORS, "cors", cfg.EnableCORS, "Enable CORS middleware")
+	var corsOrigins string
+	flagSet.StringVar(&corsOrigins, "cors-allowed-origins", strings.Join(cfg.CORSAllowedOrigins, ","), "Comma-separated list of allowed CORS origins")
 	flagSet.BoolVar(&cfg.EnableLogging, "logging", cfg.EnableLogging, "Enable request logging")
 	flagSet.BoolVar(&cfg.EnableMetrics, "metrics", cfg.EnableMetrics, "Enable metrics endpoint")
 
@@ -90,6 +96,13 @@ func parseServerOptions(args []string, cfg *config.ServerConfig) error {
 	// Parse the flags
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf("invalid server flag: %w\n\nUse 'pseudoc help' to see available options", err)
+	}
+
+	// Handle CORS origins
+	if corsOrigins != "" {
+		cfg.CORSAllowedOrigins = strings.Split(corsOrigins, ",")
+	} else {
+		cfg.CORSAllowedOrigins = []string{}
 	}
 
 	// Parse timeout if provided
@@ -120,7 +133,7 @@ func printServerUsage() {
 	fmt.Println("  --log-level LEVEL            Log level: debug, info, warn, error (default: info)")
 	fmt.Println()
 	fmt.Println("FEATURE FLAGS:")
-	fmt.Println("  --cors=true/false            Enable CORS middleware (default: true)")
+	fmt.Println("  --cors-allowed-origins LIST  Comma-separated list of allowed CORS origins (default: \"*\")")
 	fmt.Println("  --logging=true/false         Enable request logging (default: true)")
 	fmt.Println("  --metrics=true/false         Enable metrics endpoint (default: false)")
 	fmt.Println()

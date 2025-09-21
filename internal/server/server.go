@@ -224,9 +224,9 @@ func (s *Server) setupMiddleware() {
 	}))
 
 	// CORS middleware (if enabled)
-	if s.config.EnableCORS {
+	if len(s.config.CORSAllowedOrigins) > 0 {
 		s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-			AllowOrigins:     []string{"*"},
+			AllowOrigins:     s.config.CORSAllowedOrigins,
 			AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodOptions},
 			AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderXRequestID},
 			ExposeHeaders:    []string{echo.HeaderXRequestID},
@@ -269,9 +269,9 @@ func (s *Server) setupMiddleware() {
 	s.echo.Use(middleware.SecureWithConfig(middleware.SecureConfig{
 		XSSProtection:         "1; mode=block",
 		ContentTypeNosniff:    "nosniff",
-		XFrameOptions:         "DENY",
+		XFrameOptions:         s.config.XFrameOptions,
 		HSTSMaxAge:            31536000, // 1 year
-		ContentSecurityPolicy: "default-src 'self'",
+		ContentSecurityPolicy: s.config.ContentSecurityPolicy,
 	}))
 }
 
@@ -301,7 +301,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// CORS preflight handling for the generate endpoint
-	if s.config.EnableCORS {
+	if len(s.config.CORSAllowedOrigins) > 0 {
 		api.OPTIONS("/generate", func(c echo.Context) error {
 			return c.NoContent(http.StatusNoContent)
 		})

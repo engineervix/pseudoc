@@ -14,30 +14,37 @@ type ServerConfig struct {
 	Port int    // Server port (e.g., 8080)
 
 	// API behavior
-	EnableCORS     bool          // Enable CORS middleware
-	RequestTimeout time.Duration // Request timeout
-	MaxFileSize    int64         // Maximum generated file size in bytes
-	RateLimit      int           // Requests per minute (0 = no limit)
-	EnableMetrics  bool          // Enable metrics endpoint
+	CORSAllowedOrigins []string      // List of allowed CORS origins. If empty, CORS is disabled.
+	RequestTimeout     time.Duration // Request timeout
+	MaxFileSize        int64         // Maximum generated file size in bytes
+	RateLimit          int           // Requests per minute (0 = no limit)
+	EnableMetrics      bool          // Enable metrics endpoint
 
 	// Logging
 	EnableLogging bool   // Enable request logging
 	LogLevel      string // Log level (debug, info, warn, error)
+
+	// Security
+	XFrameOptions         string // X-Frame-Options header
+	ContentSecurityPolicy string // Content-Security-Policy header
 }
 
 // DefaultServerConfig returns a ServerConfig with sensible defaults
 func DefaultServerConfig() ServerConfig {
 	return ServerConfig{
-		Config:         DefaultConfig(),
-		Host:           "localhost",
-		Port:           8080,
-		EnableCORS:     true,
-		RequestTimeout: 30 * time.Second,
-		MaxFileSize:    100 * 1024 * 1024, // 100MB
-		RateLimit:      60,                // 60 requests per minute
-		EnableMetrics:  false,
-		EnableLogging:  true,
-		LogLevel:       "info",
+		Config:             DefaultConfig(),
+		Host:               "localhost",
+		Port:               8080,
+		CORSAllowedOrigins: []string{"*"},
+		RequestTimeout:     30 * time.Second,
+		MaxFileSize:        100 * 1024 * 1024, // 100MB
+		RateLimit:          60,                // 60 requests per minute
+		EnableMetrics:      false,
+		EnableLogging:      true,
+		LogLevel:           "info",
+		// Security
+		XFrameOptions:         "SAMEORIGIN",
+		ContentSecurityPolicy: "default-src 'self'",
 	}
 }
 

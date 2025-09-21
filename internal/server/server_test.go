@@ -222,7 +222,7 @@ func TestServer_Integration_HealthAndInfo(t *testing.T) {
 func TestServer_Integration_CORS(t *testing.T) {
 	cfg := config.DefaultServerConfig()
 	cfg.EnableLogging = false
-	cfg.EnableCORS = true
+	cfg.CORSAllowedOrigins = []string{"http://example.com"}
 	cfg.RateLimit = 0 // Disable rate limiting for tests
 
 	server := New(cfg)
@@ -243,14 +243,18 @@ func TestServer_Integration_CORS(t *testing.T) {
 
 	// Check CORS headers
 	corsHeaders := map[string]string{
-		"Access-Control-Allow-Origin":  "*",
+		"Access-Control-Allow-Origin":  "http://example.com",
 		"Access-Control-Allow-Methods": "",
 		"Access-Control-Allow-Headers": "",
 	}
 
-	for header := range corsHeaders {
-		if value := rec.Header().Get(header); value == "" {
+	for header, expectedValue := range corsHeaders {
+		value := rec.Header().Get(header)
+		if value == "" {
 			t.Errorf("Expected CORS header %s, got empty", header)
+		}
+		if expectedValue != "" && value != expectedValue {
+			t.Errorf("Expected CORS header %s to be %s, got %s", header, expectedValue, value)
 		}
 	}
 }
