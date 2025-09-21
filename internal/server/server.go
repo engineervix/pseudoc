@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -32,6 +33,102 @@ type ServerMetrics struct {
 	DocumentsGenerated map[string]*int64 // Changed to pointers for atomic operations
 	ErrorCount         int64
 	StartTime          time.Time
+	Performance        *PerformanceTracker
+}
+
+// PerformanceTracker tracks response times and request rates
+type PerformanceTracker struct {
+	mutex         sync.RWMutex
+	responseTimes []time.Duration
+	requestTimes  []time.Time
+	writeIndex    int
+	maxSamples    int
+	totalRequests int64
+}
+
+// NewPerformanceTracker creates a new PerformanceTracker instance
+func NewPerformanceTracker() *PerformanceTracker {
+	return &PerformanceTracker{
+		responseTimes: make([]time.Duration, config.MaxPerformanceSamples),
+		requestTimes:  make([]time.Time, config.MaxPerformanceSamples),
+		maxSamples:    config.MaxPerformanceSamples,
+	}
+}
+
+// AddResponseTime records a response time and request timestamp
+func (pt *PerformanceTracker) AddResponseTime(duration time.Duration) {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
+	pt.responseTimes[pt.writeIndex] = duration
+	pt.requestTimes[pt.writeIndex] = time.Now()
+	pt.writeIndex = (pt.writeIndex + 1) % pt.maxSamples
+	atomic.AddInt64(&pt.totalRequests, 1)
+}
+
+// GetAverageResponseTime calculates the average response time from stored samples
+func (pt *PerformanceTracker) GetAverageResponseTime() time.Duration {
+	pt.mutex.RLock()
+	defer pt.mutex.RUnlock()
+
+	totalRequests := atomic.LoadInt64(&pt.totalRequests)
+	if totalRequests == 0 {
+		return 0
+	}
+
+	var totalDuration time.Duration
+	var count int64
+
+	// Calculate how many valid samples we have
+	samples := int(totalRequests)
+	if samples > pt.maxSamples {
+		samples = pt.maxSamples
+	}
+
+	// Sum up all valid response times
+	for i := 0; i < samples; i++ {
+		if pt.responseTimes[i] > 0 {
+			totalDuration += pt.responseTimes[i]
+			count++
+		}
+	}
+
+	if count == 0 {
+		return 0
+	}
+
+	return totalDuration / time.Duration(count)
+}
+
+// GetRequestsPerMinute calculates requests per minute based on recent activity
+func (pt *PerformanceTracker) GetRequestsPerMinute() float64 {
+	pt.mutex.RLock()
+	defer pt.mutex.RUnlock()
+
+	now := time.Now()
+	cutoff := now.Add(-config.RequestsPerMinuteWindow)
+
+	var count int
+	totalRequests := atomic.LoadInt64(&pt.totalRequests)
+
+	// Count requests within the last minute
+	samples := int(totalRequests)
+	if samples > pt.maxSamples {
+		samples = pt.maxSamples
+	}
+
+	for i := 0; i < samples; i++ {
+		if !pt.requestTimes[i].IsZero() && pt.requestTimes[i].After(cutoff) {
+			count++
+		}
+	}
+
+	return float64(count)
+}
+
+// HasSufficientSamples returns true if we have enough samples for reliable metrics
+func (pt *PerformanceTracker) HasSufficientSamples() bool {
+	return atomic.LoadInt64(&pt.totalRequests) >= config.MinSamplesForMetrics
 }
 
 // NewServerMetrics creates a new ServerMetrics instance
@@ -42,7 +139,8 @@ func NewServerMetrics() *ServerMetrics {
 			"docx": new(int64),
 			"xlsx": new(int64),
 		},
-		StartTime: time.Now(),
+		StartTime:   time.Now(),
+		Performance: NewPerformanceTracker(),
 	}
 }
 
@@ -75,6 +173,21 @@ func (sm *ServerMetrics) GetErrorCount() int64 {
 // GetStartTime returns the server start time
 func (sm *ServerMetrics) GetStartTime() time.Time {
 	return sm.StartTime
+}
+
+// GetAverageResponseTime returns the average response time from the performance tracker
+func (sm *ServerMetrics) GetAverageResponseTime() time.Duration {
+	return sm.Performance.GetAverageResponseTime()
+}
+
+// GetRequestsPerMinute returns the current requests per minute rate
+func (sm *ServerMetrics) GetRequestsPerMinute() float64 {
+	return sm.Performance.GetRequestsPerMinute()
+}
+
+// HasSufficientSamples returns true if we have enough samples for reliable metrics
+func (sm *ServerMetrics) HasSufficientSamples() bool {
+	return sm.Performance.HasSufficientSamples()
 }
 
 // New creates a new server instance with the given configuration
@@ -198,15 +311,22 @@ func (s *Server) setupRoutes() {
 	}
 }
 
-// metricsMiddleware tracks request metrics
+// metricsMiddleware tracks request metrics and performance
 func (s *Server) metricsMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// Record start time for performance tracking
+			start := time.Now()
+
 			// Increment request counter
 			atomic.AddInt64(&s.metrics.RequestCount, 1)
 
 			// Call the next handler
 			err := next(c)
+
+			// Calculate response time and record it
+			duration := time.Since(start)
+			s.metrics.Performance.AddResponseTime(duration)
 
 			// Track errors
 			if err != nil {

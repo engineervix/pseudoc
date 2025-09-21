@@ -72,6 +72,9 @@ type MetricsProvider interface {
 	GetErrorCount() int64
 	GetDocumentCounts() map[string]int64
 	GetStartTime() time.Time
+	GetAverageResponseTime() time.Duration
+	GetRequestsPerMinute() float64
+	HasSufficientSamples() bool
 }
 
 // NewMetricsHandler creates a new metrics handler
@@ -108,6 +111,19 @@ func NewMetricsHandler(metricsProvider MetricsProvider) echo.HandlerFunc {
 			lastGC = time.Unix(0, int64(m.LastGC)).Format(time.RFC3339)
 		}
 
+		// Get performance metrics
+		avgResponseTime := "insufficient_data"
+		requestsPerMinute := "insufficient_data"
+
+		if metricsProvider.HasSufficientSamples() {
+			if avgDuration := metricsProvider.GetAverageResponseTime(); avgDuration > 0 {
+				avgResponseTime = avgDuration.String()
+			}
+
+			rpm := metricsProvider.GetRequestsPerMinute()
+			requestsPerMinute = fmt.Sprintf("%.1f", rpm)
+		}
+
 		response := MetricsResponse{
 			Server: ServerMetrics{
 				Uptime:       uptime.String(),
@@ -139,9 +155,8 @@ func NewMetricsHandler(metricsProvider MetricsProvider) echo.HandlerFunc {
 				ByType:         docCounts,
 			},
 			Performance: PerformanceMetrics{
-				// These could be implemented with more sophisticated metrics collection
-				AverageResponseTime: "not_implemented",
-				RequestsPerMinute:   "not_implemented",
+				AverageResponseTime: avgResponseTime,
+				RequestsPerMinute:   requestsPerMinute,
 			},
 		}
 

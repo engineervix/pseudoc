@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 // Document generation limits
 const (
 	// MaxPages defines the maximum number of pages allowed for document generation
@@ -41,4 +43,16 @@ var WindowsReservedFilenames = []string{
 const (
 	// NanosecondsToMilliseconds conversion factor
 	NanosecondsToMilliseconds = 1000000
+)
+
+// Performance tracking constants
+const (
+	// MaxPerformanceSamples defines the maximum number of response time samples to keep
+	MaxPerformanceSamples = 1000
+
+	// RequestsPerMinuteWindow defines the time window for calculating requests per minute
+	RequestsPerMinuteWindow = 60 * time.Second
+
+	// MinSamplesForMetrics defines the minimum samples needed before showing metrics
+	MinSamplesForMetrics = 5
 )
