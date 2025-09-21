@@ -16,80 +16,87 @@ import (
 
 // DocumentHandler handles document generation requests
 type DocumentHandler struct {
-	config *config.ServerConfig
+	config  *config.ServerConfig
+	metrics ServerMetricsInterface
 }
 
-// NewDocumentHandler creates a new document handler
-func NewDocumentHandler(cfg *config.ServerConfig) *DocumentHandler {
+// ServerMetricsInterface defines methods for updating metrics
+type ServerMetricsInterface interface {
+	IncrementDocumentCount(docType string)
+}
+
+// NewDocumentHandler creates a new document handler with metrics support
+func NewDocumentHandler(cfg *config.ServerConfig, metrics ServerMetricsInterface) *DocumentHandler {
 	return &DocumentHandler{
-		config: cfg,
+		config:  cfg,
+		metrics: metrics,
 	}
 }
 
 // GenerateRequest represents the JSON request body for POST /api/v1/generate
 type GenerateRequest struct {
-	Type     string `json:"type" validate:"required"`
+	Type     string `json:"type"`
 	Pages    int    `json:"pages,omitempty"`
 	Sheets   int    `json:"sheets,omitempty"`
 	Seed     int64  `json:"seed,omitempty"`
 	Filename string `json:"filename,omitempty"`
 }
 
-// ErrorResponse represents an error response
-type ErrorResponse struct {
-	Error   string `json:"error"`
+// ValidationError represents a validation error with details
+type ValidationError struct {
+	Field   string `json:"field"`
+	Value   string `json:"value"`
 	Message string `json:"message"`
-	Code    int    `json:"code"`
+}
+
+// ErrorResponse represents an error response with enhanced information
+type ErrorResponse struct {
+	Error      string            `json:"error"`
+	Message    string            `json:"message"`
+	Code       int               `json:"code"`
+	RequestID  string            `json:"request_id,omitempty"`
+	Validation []ValidationError `json:"validation_errors,omitempty"`
 }
 
 // GenerateGET handles GET requests for document generation
-// URL format: /api/v1/generate/{type}?pages=3&sheets=2&seed=42
+// URL format: /api/v1/generate/{type}?pages=3&sheets=2&seed=42&filename=mydoc
 func (h *DocumentHandler) GenerateGET(c echo.Context) error {
+	// Get request ID for error responses
+	requestID := c.Response().Header().Get(echo.HeaderXRequestID)
+
 	// Extract document type from URL parameter
 	docType := strings.ToLower(c.Param("type"))
 
 	// Create document config based on server defaults
 	docConfig := h.config.Config
 
-	// Parse query parameters
-	if err := h.parseQueryParams(c, &docConfig, docType); err != nil {
+	// Parse and validate query parameters
+	if err := h.parseAndValidateQueryParams(c, &docConfig, docType); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Invalid query parameters",
-			Message: err.Error(),
-			Code:    http.StatusBadRequest,
+			Error:     "Invalid query parameters",
+			Message:   err.Error(),
+			Code:      http.StatusBadRequest,
+			RequestID: requestID,
 		})
 	}
 
-	// Handle random document type selection
-	if docType == "random" {
-		var rng *rand.Rand
-		if docConfig.Seed != 0 {
-			rng = rand.New(rand.NewSource(docConfig.Seed))
-		} else {
-			rng = rand.New(rand.NewSource(time.Now().UnixNano()))
-		}
-
-		types := []string{config.DocTypePDF, config.DocTypeDOCX, config.DocTypeXLSX}
-		docConfig.DocType = types[rng.Intn(len(types))]
-	} else {
-		// Validate and normalize document type
-		normalizedType, err := h.normalizeDocType(docType)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, ErrorResponse{
-				Error:   "Invalid document type",
-				Message: fmt.Sprintf("'%s' is not supported. Available types: pdf, docx, xlsx, random", docType),
-				Code:    http.StatusBadRequest,
-			})
-		}
-		docConfig.DocType = normalizedType
+	// Handle random document type selection or validate type
+	if err := h.processDocumentType(docType, &docConfig); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:     "Invalid document type",
+			Message:   err.Error(),
+			Code:      http.StatusBadRequest,
+			RequestID: requestID,
+		})
 	}
 
-	// Validate the configuration
-	if err := docConfig.Validate(); err != nil {
+	// Validate the final configuration
+	if err := h.validateDocumentConfig(&docConfig); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Invalid configuration",
-			Message: err.Error(),
-			Code:    http.StatusBadRequest,
+			Error:     "Invalid configuration",
+			Message:   err.Error(),
+			Code:      http.StatusBadRequest,
+			RequestID: requestID,
 		})
 	}
 
@@ -98,71 +105,52 @@ func (h *DocumentHandler) GenerateGET(c echo.Context) error {
 }
 
 // GeneratePOST handles POST requests for document generation
-// Expected JSON payload with document configuration
 func (h *DocumentHandler) GeneratePOST(c echo.Context) error {
+	requestID := c.Response().Header().Get(echo.HeaderXRequestID)
+
 	var req GenerateRequest
 
 	// Bind JSON request
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Invalid JSON payload",
-			Message: "Failed to parse request body: " + err.Error(),
-			Code:    http.StatusBadRequest,
+			Error:     "Invalid JSON payload",
+			Message:   "Failed to parse request body: " + err.Error(),
+			Code:      http.StatusBadRequest,
+			RequestID: requestID,
 		})
 	}
 
-	// Validate required fields
-	if req.Type == "" {
+	// Validate the request
+	if validationErrors := h.validateGenerateRequest(&req); len(validationErrors) > 0 {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Missing required field",
-			Message: "Field 'type' is required",
-			Code:    http.StatusBadRequest,
+			Error:      "Validation failed",
+			Message:    "One or more fields contain invalid values",
+			Code:       http.StatusBadRequest,
+			RequestID:  requestID,
+			Validation: validationErrors,
 		})
 	}
 
 	// Create document config from request
-	docConfig := h.config.Config
-	docConfig.Seed = req.Seed
-	docConfig.BaseFilename = req.Filename
+	docConfig := h.buildConfigFromRequest(&req)
 
-	// Set document-specific parameters
-	if req.Pages > 0 {
-		docConfig.Pages = req.Pages
-	}
-	if req.Sheets > 0 {
-		docConfig.Sheets = req.Sheets
-	}
-
-	// Handle random document type selection
-	if strings.ToLower(req.Type) == "random" {
-		var rng *rand.Rand
-		if docConfig.Seed != 0 {
-			rng = rand.New(rand.NewSource(docConfig.Seed))
-		} else {
-			rng = rand.New(rand.NewSource(time.Now().UnixNano()))
-		}
-
-		types := []string{config.DocTypePDF, config.DocTypeDOCX, config.DocTypeXLSX}
-		docConfig.DocType = types[rng.Intn(len(types))]
-	} else {
-		// Validate and normalize document type
-		normalizedType, err := h.normalizeDocType(req.Type)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, ErrorResponse{
-				Error:   "Invalid document type",
-				Message: fmt.Sprintf("'%s' is not supported. Available types: pdf, docx, xlsx, random", req.Type),
-				Code:    http.StatusBadRequest,
-			})
-		}
-		docConfig.DocType = normalizedType
-	}
-
-	// Validate the configuration
-	if err := docConfig.Validate(); err != nil {
+	// Handle random document type selection or validate type
+	if err := h.processDocumentType(req.Type, &docConfig); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Invalid configuration",
-			Message: err.Error(),
-			Code:    http.StatusBadRequest,
+			Error:     "Invalid document type",
+			Message:   err.Error(),
+			Code:      http.StatusBadRequest,
+			RequestID: requestID,
+		})
+	}
+
+	// Validate the final configuration
+	if err := h.validateDocumentConfig(&docConfig); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:     "Invalid configuration",
+			Message:   err.Error(),
+			Code:      http.StatusBadRequest,
+			RequestID: requestID,
 		})
 	}
 
@@ -170,15 +158,18 @@ func (h *DocumentHandler) GeneratePOST(c echo.Context) error {
 	return h.generateAndStream(c, &docConfig)
 }
 
-// parseQueryParams parses query parameters and updates the document config
-func (h *DocumentHandler) parseQueryParams(c echo.Context, cfg *config.Config, docType string) error {
+// parseAndValidateQueryParams parses and validates query parameters
+func (h *DocumentHandler) parseAndValidateQueryParams(c echo.Context, cfg *config.Config, docType string) error {
 	// Parse pages parameter
 	if pagesStr := c.QueryParam("pages"); pagesStr != "" {
 		pages, err := strconv.Atoi(pagesStr)
-		if err != nil || pages < 1 {
-			return fmt.Errorf("pages must be a positive integer, got '%s'", pagesStr)
+		if err != nil {
+			return fmt.Errorf("pages parameter must be a valid integer, got '%s'", pagesStr)
 		}
-		if pages > 100 { // Reasonable limit
+		if pages < 1 {
+			return fmt.Errorf("pages must be at least 1, got %d", pages)
+		}
+		if pages > 100 { // Configurable limit
 			return fmt.Errorf("pages cannot exceed 100, got %d", pages)
 		}
 		cfg.Pages = pages
@@ -187,10 +178,13 @@ func (h *DocumentHandler) parseQueryParams(c echo.Context, cfg *config.Config, d
 	// Parse sheets parameter
 	if sheetsStr := c.QueryParam("sheets"); sheetsStr != "" {
 		sheets, err := strconv.Atoi(sheetsStr)
-		if err != nil || sheets < 1 {
-			return fmt.Errorf("sheets must be a positive integer, got '%s'", sheetsStr)
+		if err != nil {
+			return fmt.Errorf("sheets parameter must be a valid integer, got '%s'", sheetsStr)
 		}
-		if sheets > 50 { // Reasonable limit
+		if sheets < 1 {
+			return fmt.Errorf("sheets must be at least 1, got %d", sheets)
+		}
+		if sheets > 50 { // Configurable limit
 			return fmt.Errorf("sheets cannot exceed 50, got %d", sheets)
 		}
 		cfg.Sheets = sheets
@@ -200,20 +194,148 @@ func (h *DocumentHandler) parseQueryParams(c echo.Context, cfg *config.Config, d
 	if seedStr := c.QueryParam("seed"); seedStr != "" {
 		seed, err := strconv.ParseInt(seedStr, 10, 64)
 		if err != nil {
-			return fmt.Errorf("seed must be a valid integer, got '%s'", seedStr)
+			return fmt.Errorf("seed parameter must be a valid integer, got '%s'", seedStr)
 		}
 		cfg.Seed = seed
 	}
 
-	// Parse filename parameter
+	// Parse and validate filename parameter
 	if filename := c.QueryParam("filename"); filename != "" {
-		// Basic validation for filename
-		if strings.ContainsAny(filename, "/\\:*?\"<>|") {
-			return fmt.Errorf("filename contains invalid characters")
+		if err := h.validateFilename(filename); err != nil {
+			return fmt.Errorf("filename parameter: %w", err)
 		}
 		cfg.BaseFilename = filename
 	}
 
+	return nil
+}
+
+// validateGenerateRequest validates the POST request payload
+func (h *DocumentHandler) validateGenerateRequest(req *GenerateRequest) []ValidationError {
+	var errors []ValidationError
+
+	// Required field validation
+	if req.Type == "" {
+		errors = append(errors, ValidationError{
+			Field:   "type",
+			Value:   req.Type,
+			Message: "type is required and cannot be empty",
+		})
+	}
+
+	// Pages validation
+	if req.Pages < 0 {
+		errors = append(errors, ValidationError{
+			Field:   "pages",
+			Value:   fmt.Sprintf("%d", req.Pages),
+			Message: "pages cannot be negative",
+		})
+	}
+	if req.Pages > 100 {
+		errors = append(errors, ValidationError{
+			Field:   "pages",
+			Value:   fmt.Sprintf("%d", req.Pages),
+			Message: "pages cannot exceed 100",
+		})
+	}
+
+	// Sheets validation
+	if req.Sheets < 0 {
+		errors = append(errors, ValidationError{
+			Field:   "sheets",
+			Value:   fmt.Sprintf("%d", req.Sheets),
+			Message: "sheets cannot be negative",
+		})
+	}
+	if req.Sheets > 50 {
+		errors = append(errors, ValidationError{
+			Field:   "sheets",
+			Value:   fmt.Sprintf("%d", req.Sheets),
+			Message: "sheets cannot exceed 50",
+		})
+	}
+
+	// Filename validation
+	if req.Filename != "" {
+		if err := h.validateFilename(req.Filename); err != nil {
+			errors = append(errors, ValidationError{
+				Field:   "filename",
+				Value:   req.Filename,
+				Message: err.Error(),
+			})
+		}
+	}
+
+	return errors
+}
+
+// validateFilename validates a filename for security and compatibility
+func (h *DocumentHandler) validateFilename(filename string) error {
+	if len(filename) == 0 {
+		return fmt.Errorf("filename cannot be empty")
+	}
+	if len(filename) > 255 {
+		return fmt.Errorf("filename too long (max 255 characters)")
+	}
+
+	// Check for invalid characters (Windows + Unix)
+	invalidChars := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|", "\n", "\r", "\t"}
+	for _, char := range invalidChars {
+		if strings.Contains(filename, char) {
+			return fmt.Errorf("filename contains invalid character '%s'", char)
+		}
+	}
+
+	// Check for reserved names (Windows)
+	reserved := []string{"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}
+	upperFilename := strings.ToUpper(filename)
+	for _, name := range reserved {
+		if upperFilename == name {
+			return fmt.Errorf("filename '%s' is reserved", filename)
+		}
+	}
+
+	return nil
+}
+
+// buildConfigFromRequest creates a document config from the request
+func (h *DocumentHandler) buildConfigFromRequest(req *GenerateRequest) config.Config {
+	docConfig := h.config.Config
+	docConfig.Seed = req.Seed
+	docConfig.BaseFilename = req.Filename
+
+	// Set document-specific parameters with defaults
+	if req.Pages > 0 {
+		docConfig.Pages = req.Pages
+	}
+	if req.Sheets > 0 {
+		docConfig.Sheets = req.Sheets
+	}
+
+	return docConfig
+}
+
+// processDocumentType handles random document type selection or validates the type
+func (h *DocumentHandler) processDocumentType(docType string, cfg *config.Config) error {
+	if strings.ToLower(docType) == "random" {
+		var rng *rand.Rand
+		if cfg.Seed != 0 {
+			rng = rand.New(rand.NewSource(cfg.Seed))
+		} else {
+			rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+		}
+
+		types := []string{config.DocTypePDF, config.DocTypeDOCX, config.DocTypeXLSX}
+		cfg.DocType = types[rng.Intn(len(types))]
+		return nil
+	}
+
+	// Validate and normalize document type
+	normalizedType, err := h.normalizeDocType(docType)
+	if err != nil {
+		return fmt.Errorf("'%s' is not supported. Available types: pdf, docx, xlsx, random", docType)
+	}
+	cfg.DocType = normalizedType
 	return nil
 }
 
@@ -231,16 +353,30 @@ func (h *DocumentHandler) normalizeDocType(docType string) (string, error) {
 	}
 }
 
+// validateDocumentConfig validates the final document configuration
+func (h *DocumentHandler) validateDocumentConfig(cfg *config.Config) error {
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+	return nil
+}
+
 // generateAndStream generates the document and streams it to the client
 func (h *DocumentHandler) generateAndStream(c echo.Context, cfg *config.Config) error {
 	// Get the appropriate generator
 	gen, err := generator.GetGenerator(cfg.DocType)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:   "Generator error",
-			Message: "Failed to get document generator: " + err.Error(),
-			Code:    http.StatusInternalServerError,
+			Error:     "Generator error",
+			Message:   "Failed to get document generator: " + err.Error(),
+			Code:      http.StatusInternalServerError,
+			RequestID: c.Response().Header().Get(echo.HeaderXRequestID),
 		})
+	}
+
+	// Update metrics
+	if h.metrics != nil {
+		h.metrics.IncrementDocumentCount(cfg.DocType)
 	}
 
 	// Generate filename for response headers
@@ -260,8 +396,9 @@ func (h *DocumentHandler) generateAndStream(c echo.Context, cfg *config.Config) 
 
 	if err := gen.Generate(c.Response().Writer, cfg); err != nil {
 		// At this point headers are already sent, so we can't return a JSON error
-		// Log the error and close the connection
-		c.Logger().Errorf("Document generation failed: %v", err)
+		// Log the error with request context
+		c.Logger().Errorf("Document generation failed for request %s: %v",
+			c.Response().Header().Get(echo.HeaderXRequestID), err)
 		return err
 	}
 

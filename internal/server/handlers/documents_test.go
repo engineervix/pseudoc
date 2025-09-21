@@ -13,10 +13,28 @@ import (
 	"github.com/engineervix/pseudoc/internal/config"
 )
 
+// Mock metrics implementation for testing
+type mockMetrics struct {
+	documentCounts map[string]int64
+}
+
+func (m *mockMetrics) IncrementDocumentCount(docType string) {
+	if m.documentCounts == nil {
+		m.documentCounts = make(map[string]int64)
+	}
+	m.documentCounts[docType]++
+}
+
+func newMockMetrics() *mockMetrics {
+	return &mockMetrics{
+		documentCounts: make(map[string]int64),
+	}
+}
+
 func TestDocumentHandler_GenerateGET_PDF(t *testing.T) {
 	// Setup
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/generate/pdf", nil)
@@ -58,7 +76,7 @@ func TestDocumentHandler_GenerateGET_PDF(t *testing.T) {
 
 func TestDocumentHandler_GenerateGET_DOCX(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/generate/docx", nil)
@@ -91,7 +109,7 @@ func TestDocumentHandler_GenerateGET_DOCX(t *testing.T) {
 
 func TestDocumentHandler_GenerateGET_XLSX(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/generate/xlsx", nil)
@@ -118,7 +136,7 @@ func TestDocumentHandler_GenerateGET_XLSX(t *testing.T) {
 
 func TestDocumentHandler_GenerateGET_WithQueryParams(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/generate/pdf?pages=3&seed=42&filename=test-doc", nil)
@@ -146,7 +164,7 @@ func TestDocumentHandler_GenerateGET_WithQueryParams(t *testing.T) {
 
 func TestDocumentHandler_GenerateGET_Random(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/generate/random?seed=42", nil)
@@ -187,7 +205,7 @@ func TestDocumentHandler_GenerateGET_Random(t *testing.T) {
 
 func TestDocumentHandler_GenerateGET_InvalidType(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/generate/invalid", nil)
@@ -218,7 +236,7 @@ func TestDocumentHandler_GenerateGET_InvalidType(t *testing.T) {
 
 func TestDocumentHandler_GenerateGET_InvalidQueryParams(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	testCases := []struct {
 		name  string
@@ -256,7 +274,7 @@ func TestDocumentHandler_GenerateGET_InvalidQueryParams(t *testing.T) {
 
 func TestDocumentHandler_GeneratePOST_Success(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	requestBody := GenerateRequest{
 		Type:     "pdf",
@@ -292,7 +310,7 @@ func TestDocumentHandler_GeneratePOST_Success(t *testing.T) {
 
 func TestDocumentHandler_GeneratePOST_Random(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	requestBody := GenerateRequest{
 		Type: "random",
@@ -320,7 +338,7 @@ func TestDocumentHandler_GeneratePOST_Random(t *testing.T) {
 
 func TestDocumentHandler_GeneratePOST_InvalidJSON(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/generate", strings.NewReader("invalid json"))
@@ -341,7 +359,7 @@ func TestDocumentHandler_GeneratePOST_InvalidJSON(t *testing.T) {
 
 func TestDocumentHandler_GeneratePOST_MissingType(t *testing.T) {
 	cfg := config.DefaultServerConfig()
-	handler := NewDocumentHandler(&cfg)
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
 
 	requestBody := GenerateRequest{
 		Pages: 3,
@@ -370,8 +388,8 @@ func TestDocumentHandler_GeneratePOST_MissingType(t *testing.T) {
 		t.Fatalf("Failed to parse error response: %v", err)
 	}
 
-	if errorResp.Error != "Missing required field" {
-		t.Errorf("Expected 'Missing required field', got %s", errorResp.Error)
+	if errorResp.Error != "Validation failed" {
+		t.Errorf("Expected 'Validation failed', got %s", errorResp.Error)
 	}
 }
 
