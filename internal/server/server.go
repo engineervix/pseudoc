@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -426,7 +427,20 @@ func (s *Server) setupRoutes() {
 
 	// Metrics endpoint (if enabled)
 	if s.config.EnableMetrics {
-		s.echo.GET("/metrics", handlers.NewMetricsHandler(s.metrics))
+		metricsHandler := handlers.NewMetricsHandler(s.metrics)
+
+		// Apply basic auth if credentials are configured
+		if s.config.MetricsUsername != "" && s.config.MetricsPassword != "" {
+			s.echo.GET("/metrics", metricsHandler, middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
+				// Use constant time comparison to prevent timing attacks
+				usernameMatch := subtle.ConstantTimeCompare([]byte(username), []byte(s.config.MetricsUsername)) == 1
+				passwordMatch := subtle.ConstantTimeCompare([]byte(password), []byte(s.config.MetricsPassword)) == 1
+				return usernameMatch && passwordMatch, nil
+			}))
+		} else {
+			// No authentication required
+			s.echo.GET("/metrics", metricsHandler)
+		}
 	}
 
 	// CORS preflight handling for the generate endpoint

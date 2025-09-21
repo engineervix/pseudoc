@@ -28,6 +28,10 @@ type ServerConfig struct {
 	// Security
 	XFrameOptions         string // X-Frame-Options header
 	ContentSecurityPolicy string // Content-Security-Policy header
+
+	// Metrics security (optional)
+	MetricsUsername string // Basic auth username for metrics endpoint (empty = no auth)
+	MetricsPassword string // Basic auth password for metrics endpoint
 }
 
 // DefaultServerConfig returns a ServerConfig with sensible defaults

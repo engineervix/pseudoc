@@ -407,6 +407,70 @@ func TestServer_Integration_RateLimit_Applied_Correctly(t *testing.T) {
 	})
 }
 
+func TestServer_Integration_Metrics_Security(t *testing.T) {
+	t.Run("Metrics_NoAuth_ByDefault", func(t *testing.T) {
+		cfg := config.DefaultServerConfig()
+		cfg.EnableLogging = false
+		cfg.EnableMetrics = true
+		cfg.RateLimit = 0
+
+		server := New(cfg)
+		server.setupMiddleware()
+		server.setupRoutes()
+
+		// Test that metrics endpoint is accessible without auth by default
+		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+		rec := httptest.NewRecorder()
+		server.echo.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("Expected status 200 for metrics without auth, got %d", rec.Code)
+		}
+	})
+
+	t.Run("Metrics_WithBasicAuth", func(t *testing.T) {
+		cfg := config.DefaultServerConfig()
+		cfg.EnableLogging = false
+		cfg.EnableMetrics = true
+		cfg.MetricsUsername = "admin"
+		cfg.MetricsPassword = "secret"
+		cfg.RateLimit = 0
+
+		server := New(cfg)
+		server.setupMiddleware()
+		server.setupRoutes()
+
+		// Test without auth - should get 401
+		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+		rec := httptest.NewRecorder()
+		server.echo.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("Expected status 401 for metrics without auth, got %d", rec.Code)
+		}
+
+		// Test with correct auth - should get 200
+		req = httptest.NewRequest(http.MethodGet, "/metrics", nil)
+		req.SetBasicAuth("admin", "secret")
+		rec = httptest.NewRecorder()
+		server.echo.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("Expected status 200 for metrics with correct auth, got %d", rec.Code)
+		}
+
+		// Test with wrong auth - should get 401
+		req = httptest.NewRequest(http.MethodGet, "/metrics", nil)
+		req.SetBasicAuth("admin", "wrong")
+		rec = httptest.NewRecorder()
+		server.echo.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("Expected status 401 for metrics with wrong auth, got %d", rec.Code)
+		}
+	})
+}
+
 func TestServer_Integration_IPExtractor(t *testing.T) {
 	cfg := config.DefaultServerConfig()
 	cfg.EnableLogging = false
