@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/engineervix/pseudoc/internal/version"
 	"github.com/labstack/echo/v4"
 )
 
@@ -20,7 +21,7 @@ func NewHealthHandler() echo.HandlerFunc {
 		response := HealthResponse{
 			Status:    "ok",
 			Timestamp: time.Now(),
-			Version:   "0.1.0", // TODO: Get this from build info
+			Version:   version.Version,
 		}
 
 		return c.JSON(http.StatusOK, response)

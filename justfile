@@ -56,15 +56,16 @@ build-release:
     set -euo pipefail
 
     # Get build information
-    VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+    VERSION=$(node -p "require('./package.json').version")
     BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
     GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "dev")
 
+
     # Build with ldflags to embed version info
     go build -ldflags "\
-        -X 'main.version=${VERSION}' \
-        -X 'main.buildTime=${BUILD_TIME}' \
-        -X 'main.gitCommit=${GIT_COMMIT}'" \
+        -X 'github.com/engineervix/pseudoc/internal/version.Version=${VERSION}' \
+        -X 'github.com/engineervix/pseudoc/internal/version.Date=${BUILD_TIME}' \
+        -X 'github.com/engineervix/pseudoc/internal/version.Commit=${GIT_COMMIT}'" \
         -o bin/pseudoc ./cmd/pseudoc
 
     echo "Built pseudoc with version info:"

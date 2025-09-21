@@ -5,9 +5,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/labstack/echo/v4"
-
 	"github.com/engineervix/pseudoc/internal/config"
+	"github.com/engineervix/pseudoc/internal/version"
+	"github.com/labstack/echo/v4"
 )
 
 // InfoResponse represents server information
@@ -48,7 +48,7 @@ func NewInfoHandler(cfg *config.ServerConfig) echo.HandlerFunc {
 
 		response := InfoResponse{
 			Name:        "pseudoc",
-			Version:     "0.1.0", // TODO: Get this from build info
+			Version:     version.Version,
 			Description: "Lorem Ipsum for Documents - Generate placeholder documents for testing and development",
 			SupportedFormats: []string{
 				config.DocTypePDF,

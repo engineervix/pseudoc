@@ -1,4 +1,45 @@
 {
+  "name": "pseudoc",
+  "version": "0.1.0",
+  "description": "A tool for generating placeholder documents to support testing and development workflows",
+  "private": true,
+  "author": "Victor Miti",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/engineervix/pseudoc.git"
+  },
+  "scripts": {
+    "release": "commit-and-tag-version"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@commitlint/cz-commitlint": "^19.8.1",
+    "@commitlint/prompt-cli": "^19.8.1",
+    "commit-and-tag-version": "^12.6.0",
+    "commitizen": "^4.3.1",
+    "conventional-changelog-atom": "^5.0.0",
+    "prettier": "^3.6.2",
+    "semver": "^7.7.2"
+  },
+  "config": {
+    "commitizen": {
+      "path": "@commitlint/cz-commitlint"
+    }
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ],
+    "parserPreset": "conventional-changelog-atom"
+  },
+  "commit-and-tag-version": {
+    "bumpFiles": [
+      "package.json",
+      "package-lock.json"
+    ],
     "header": "# Changelog\n\nAll notable changes to this project will be documented here.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project attempts to adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n",
     "types": [
       {
@@ -59,4 +100,5 @@
       "prechangelog": "sed -e '1,6d' -i CHANGELOG.md",
       "postchangelog": "sed -e 's/###\\ \\[/##\\ \\[v/g' -i CHANGELOG.md && sed -re 's/##\\ \\[([0-9])/##\\ \\[v\\1/g' -i CHANGELOG.md"
     }
+  }
 }

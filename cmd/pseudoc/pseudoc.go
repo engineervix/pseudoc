@@ -12,15 +12,7 @@ import (
 
 	"github.com/engineervix/pseudoc/internal/config"
 	"github.com/engineervix/pseudoc/internal/generator"
-)
-
-// TODO: figure out how to automagically update this whenever I run `just release`
-const version = "0.1.0"
-
-// Build information - can be set via ldflags during build
-var (
-	buildTime = "dev"
-	gitCommit = "dev"
+	"github.com/engineervix/pseudoc/internal/version"
 )
 
 func main() {
@@ -256,15 +248,15 @@ func enhanceFileError(err error, filename, operation string) error {
 }
 
 func printVersionInfo() {
-	fmt.Printf("pseudoc version %s\n", version)
+	fmt.Printf("pseudoc version %s\n", version.Version)
 	fmt.Printf("Go version: %s\n", runtime.Version())
 	fmt.Printf("Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 
-	if buildTime != "dev" {
-		fmt.Printf("Built: %s\n", buildTime)
+	if version.Date != "unknown" {
+		fmt.Printf("Built: %s\n", version.Date)
 	}
-	if gitCommit != "dev" {
-		fmt.Printf("Commit: %s\n", gitCommit)
+	if version.Commit != "none" {
+		fmt.Printf("Commit: %s\n", version.Commit)
 	}
 }
 
