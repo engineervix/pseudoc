@@ -38,7 +38,7 @@ type ServerMetrics struct {
 	Performance        *PerformanceTracker
 }
 
-// PerformanceTracker tracks response times and request rates
+// PerformanceTracker tracks response times and request rates using an efficient ring buffer
 type PerformanceTracker struct {
 	mutex         sync.RWMutex
 	responseTimes []time.Duration
@@ -46,6 +46,7 @@ type PerformanceTracker struct {
 	writeIndex    int
 	maxSamples    int
 	totalRequests int64
+	filled        bool // Track if the buffer has been filled at least once
 }
 
 // NewPerformanceTracker creates a new PerformanceTracker instance
@@ -57,18 +58,25 @@ func NewPerformanceTracker() *PerformanceTracker {
 	}
 }
 
-// AddResponseTime records a response time and request timestamp
+// AddResponseTime records a response time and request timestamp efficiently
 func (pt *PerformanceTracker) AddResponseTime(duration time.Duration) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
 	pt.responseTimes[pt.writeIndex] = duration
 	pt.requestTimes[pt.writeIndex] = time.Now()
-	pt.writeIndex = (pt.writeIndex + 1) % pt.maxSamples
+
+	// Move to next position
+	pt.writeIndex++
+	if pt.writeIndex >= pt.maxSamples {
+		pt.writeIndex = 0
+		pt.filled = true // Mark that we've wrapped around at least once
+	}
+
 	atomic.AddInt64(&pt.totalRequests, 1)
 }
 
-// GetAverageResponseTime calculates the average response time from stored samples
+// GetAverageResponseTime calculates the average response time from stored samples efficiently
 func (pt *PerformanceTracker) GetAverageResponseTime() time.Duration {
 	pt.mutex.RLock()
 	defer pt.mutex.RUnlock()
@@ -79,16 +87,20 @@ func (pt *PerformanceTracker) GetAverageResponseTime() time.Duration {
 	}
 
 	var totalDuration time.Duration
-	var count int64
+	var count int
 
-	// Calculate how many valid samples we have
-	samples := int(totalRequests)
-	if samples > pt.maxSamples {
-		samples = pt.maxSamples
+	// Determine how many samples to process
+	var samplesToProcess int
+	if pt.filled {
+		// Buffer is full, process all samples
+		samplesToProcess = pt.maxSamples
+	} else {
+		// Buffer not full yet, process only up to writeIndex
+		samplesToProcess = pt.writeIndex
 	}
 
 	// Sum up all valid response times
-	for i := 0; i < samples; i++ {
+	for i := 0; i < samplesToProcess; i++ {
 		if pt.responseTimes[i] > 0 {
 			totalDuration += pt.responseTimes[i]
 			count++
@@ -102,7 +114,7 @@ func (pt *PerformanceTracker) GetAverageResponseTime() time.Duration {
 	return totalDuration / time.Duration(count)
 }
 
-// GetRequestsPerMinute calculates requests per minute based on recent activity
+// GetRequestsPerMinute calculates requests per minute based on recent activity efficiently
 func (pt *PerformanceTracker) GetRequestsPerMinute() float64 {
 	pt.mutex.RLock()
 	defer pt.mutex.RUnlock()
@@ -111,15 +123,19 @@ func (pt *PerformanceTracker) GetRequestsPerMinute() float64 {
 	cutoff := now.Add(-config.RequestsPerMinuteWindow)
 
 	var count int
-	totalRequests := atomic.LoadInt64(&pt.totalRequests)
 
-	// Count requests within the last minute
-	samples := int(totalRequests)
-	if samples > pt.maxSamples {
-		samples = pt.maxSamples
+	// Determine how many samples to process
+	var samplesToProcess int
+	if pt.filled {
+		// Buffer is full, process all samples
+		samplesToProcess = pt.maxSamples
+	} else {
+		// Buffer not full yet, process only up to writeIndex
+		samplesToProcess = pt.writeIndex
 	}
 
-	for i := 0; i < samples; i++ {
+	// Count requests within the last minute
+	for i := 0; i < samplesToProcess; i++ {
 		if !pt.requestTimes[i].IsZero() && pt.requestTimes[i].After(cutoff) {
 			count++
 		}

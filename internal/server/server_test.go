@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/engineervix/pseudoc/internal/config"
 	"github.com/engineervix/pseudoc/internal/server/handlers"
@@ -469,6 +470,57 @@ func TestServer_Integration_Metrics_Security(t *testing.T) {
 			t.Errorf("Expected status 401 for metrics with wrong auth, got %d", rec.Code)
 		}
 	})
+}
+
+func TestPerformanceTracker_RingBuffer(t *testing.T) {
+	// Create a small tracker for testing
+	tracker := &PerformanceTracker{
+		responseTimes: make([]time.Duration, 3), // Small buffer for testing
+		requestTimes:  make([]time.Time, 3),
+		maxSamples:    3,
+	}
+
+	// Add some response times
+	tracker.AddResponseTime(100 * time.Millisecond)
+	tracker.AddResponseTime(200 * time.Millisecond)
+
+	// Buffer should not be marked as filled yet (writeIndex = 2)
+	if tracker.filled {
+		t.Error("Buffer should not be marked as filled after 2 items in 3-item buffer")
+	}
+
+	// Add third item - this should fill the buffer but not mark it as wrapped
+	tracker.AddResponseTime(300 * time.Millisecond)
+
+	// Buffer should now be marked as filled (writeIndex = 0, filled = true)
+	if !tracker.filled {
+		t.Error("Buffer should be marked as filled after filling all slots")
+	}
+
+	// Add one more to test wrap-around behavior
+	tracker.AddResponseTime(400 * time.Millisecond)
+
+	// Verify average calculation works correctly
+	avgTime := tracker.GetAverageResponseTime()
+	if avgTime == 0 {
+		t.Error("Average response time should not be zero")
+	}
+
+	// Verify requests per minute calculation - should show 3 items (buffer size)
+	rpm := tracker.GetRequestsPerMinute()
+	if rpm != 3.0 { // Only 3 items can fit in the buffer
+		t.Errorf("Expected 3 requests per minute (buffer size), got %f", rpm)
+	}
+
+	// Verify total requests counter shows all requests
+	if tracker.totalRequests != 4 {
+		t.Errorf("Expected 4 total requests, got %d", tracker.totalRequests)
+	}
+
+	// Verify writeIndex wrapped around
+	if tracker.writeIndex != 1 { // Should be at position 1 after 4 additions to 3-item buffer
+		t.Errorf("Expected writeIndex to be 1, got %d", tracker.writeIndex)
+	}
 }
 
 func TestServer_Integration_IPExtractor(t *testing.T) {
