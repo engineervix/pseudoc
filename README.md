@@ -18,7 +18,7 @@
 
 ### Pre-compiled Binaries
 
-Pre-compiled binaries for all major platforms are available in the [`bin/`](./bin) directory and on the [GitHub Releases](https://github.com/engineervix/pseudoc/releases) page. Download the appropriate binary for your system, make it executable, and you're ready to go.
+Pre-compiled binaries for all major platforms are available on the [GitHub Releases](https://github.com/engineervix/pseudoc/releases) page. Download the appropriate binary for your system, add it somewhere appropriate, e.g. a directory in your PATH, and you're ready to go.
 
 ### From Source
 
@@ -100,7 +100,7 @@ FORMAT-SPECIFIC OPTIONS:
 
 ### HTTP API Server
 
-Start the server to generate documents via HTTP requests. This is useful for integrations and for services like [picsum.photos](https://picsum.photos).
+Start the server to generate documents via HTTP requests. This is useful for various kinds of integrations.
 
 #### Starting the Server
 
@@ -125,6 +125,7 @@ pseudoc serve --host 0.0.0.0 --port 3000 --env production
 - `GET /api/v1/info`: Returns server information and capabilities.
 - `GET /api/v1/generate/{type}`: Generate a document.
 - `POST /api/v1/generate`: Generate a document with a JSON config.
+- `GET /metrics`: Server metrics endpoint (when enabled).
 
 #### API Examples
 
@@ -149,16 +150,49 @@ pseudoc serve --host 0.0.0.0 --port 3000 --env production
       -o document.docx
     ```
 
-When using the `GET /api/v1/generate/random` endpoint, the server will redirect you to the endpoint of the randomly selected document type (e.g., `/api/v1/generate/pdf`). This allows command-line tools like `curl` to automatically follow the redirect and save the file with the correct name and extension.
-
-Use the `-L` flag to follow redirects, `-J` to use the server-provided filename, and `-O` to save the file to disk:
+When using the `GET /api/v1/generate/random` endpoint, the server will generate a document of a randomly selected type directly. Both GET and POST requests include the `X-Pseudoc-Generated-Type` response header to indicate which document type was generated.
 
 ```sh
-# The server will redirect to the correct document type endpoint
+# Generate a random document - the type will be determined by the server
+curl "http://localhost:8080/api/v1/generate/random?seed=42" -o random-doc
+```
+
+Use the `-L -J -O` flags to automatically save the file with the server-provided filename and extension:
+
+```sh
+# The server provides the correct filename via Content-Disposition header
 curl -L -J -O "http://localhost:8080/api/v1/generate/random?seed=42"
 ```
 
-For `POST` requests, the `X-Pseudoc-Generated-Type` response header is still used to indicate the generated document type.
+You can check the generated document type from the response header:
+
+```sh
+curl -I "http://localhost:8080/api/v1/generate/random?seed=42"
+# Look for: X-Pseudoc-Generated-Type: pdf
+```
+
+#### Server Configuration
+
+The server supports various configuration options for production deployment:
+
+- **CORS**: Disabled by default for security. Enable by setting allowed origins.
+- **Rate Limiting**: 60 requests per minute by default. Set to 0 to disable.
+- **Metrics**: Disabled by default. Enable with `--metrics` flag. Basic authentication can be configured programmatically.
+- **Request Timeout**: 30 seconds by default.
+- **Max File Size**: 100MB limit for generated documents.
+
+Example with custom configuration:
+
+```sh
+# Enable metrics endpoint
+pseudoc serve --metrics
+
+# Custom rate limiting and CORS
+pseudoc serve --rate-limit 120 --cors-allowed-origins "https://example.com,https://app.example.com"
+
+# Production setup with custom timeout and logging
+pseudoc serve --env production --timeout 60s --log-level warn
+```
 
 ## Development
 
