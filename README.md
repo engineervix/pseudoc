@@ -3,6 +3,28 @@
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/engineervix/pseudoc)
 [![CI/CD](https://github.com/engineervix/pseudoc/actions/workflows/main.yml/badge.svg)](https://github.com/engineervix/pseudoc/actions/workflows/main.yml)
 
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [Features](#features)
+- [Installation](#installation)
+  - [Pre-compiled Binaries](#pre-compiled-binaries)
+  - [From Source](#from-source)
+- [Usage](#usage)
+  - [Command-Line Interface (CLI)](#command-line-interface-cli)
+    - [Commands and Options](#commands-and-options)
+    - [Examples](#examples)
+  - [HTTP API Server](#http-api-server)
+    - [Starting the Server](#starting-the-server)
+    - [Server Environments](#server-environments)
+    - [API Endpoints](#api-endpoints)
+    - [API Documentation](#api-documentation)
+    - [API Examples](#api-examples)
+    - [Server Configuration](#server-configuration)
+- [Development](#development)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 `pseudoc` is a tool for generating placeholder documents to support testing and development workflows. Similar to how [Lorem Ipsum](https://en.wikipedia.org/wiki/Lorem_ipsum) provides placeholder text and [picsum.photos](https://picsum.photos) provides placeholder images, pseudoc generates various types of fake documents to aid in development and testing scenarios.
 
 ## Features
@@ -126,6 +148,18 @@ pseudoc serve --host 0.0.0.0 --port 3000 --env production
 - `GET /api/v1/generate/{type}`: Generate a document.
 - `POST /api/v1/generate`: Generate a document with a JSON config.
 - `GET /metrics`: Server metrics endpoint (when enabled).
+- `GET /docs`: Interactive API documentation (Swagger UI).
+
+#### API Documentation
+
+The server provides interactive API documentation via Swagger UI at `/docs`. This includes:
+
+- **Interactive Testing**: Try out API endpoints directly from the browser
+- **Request/Response Examples**: See example requests and responses for all endpoints
+- **Schema Documentation**: Detailed documentation of all request and response formats
+- **Parameter Validation**: Real-time validation of API parameters
+
+Visit `http://localhost:8080/docs` when the server is running to explore the full API documentation.
 
 #### API Examples
 
@@ -209,4 +243,8 @@ This project uses `just` as a command runner. See the [`justfile`](./justfile) f
 - **Run the tool locally:**
     ```sh
     just run -- pdf --count 2
+    ```
+- **Generate API documentation:**
+    ```sh
+    just docs
     ```
