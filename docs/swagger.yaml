@@ -1,0 +1,335 @@
+basePath: /api/v1
+definitions:
+  internal_server_handlers.CheckResult:
+    properties:
+      message:
+        type: string
+      name:
+        type: string
+      status:
+        description: '"ok", "warning", "error"'
+        type: string
+    type: object
+  internal_server_handlers.ErrorResponse:
+    description: Standard error response format
+    properties:
+      code:
+        example: 400
+        type: integer
+      error:
+        example: Invalid document type
+        type: string
+      message:
+        example: 'Supported types: pdf, docx, xlsx, random'
+        type: string
+      request_id:
+        example: req_123456789
+        type: string
+      validation_errors:
+        items:
+          $ref: '#/definitions/internal_server_handlers.ValidationError'
+        type: array
+    type: object
+  internal_server_handlers.GenerateRequest:
+    description: Request body for document generation via POST
+    properties:
+      filename:
+        example: my-document
+        type: string
+      pages:
+        example: 5
+        maximum: 100
+        minimum: 1
+        type: integer
+      seed:
+        example: 42
+        type: integer
+      sheets:
+        example: 3
+        maximum: 10
+        minimum: 1
+        type: integer
+      type:
+        enum:
+        - pdf
+        - docx
+        - xlsx
+        - random
+        example: pdf
+        type: string
+    required:
+    - type
+    type: object
+  internal_server_handlers.HealthResponse:
+    description: Server health status information
+    properties:
+      checks:
+        items:
+          $ref: '#/definitions/internal_server_handlers.CheckResult'
+        type: array
+      status:
+        example: healthy
+        type: string
+      system:
+        $ref: '#/definitions/internal_server_handlers.SystemInfo'
+      timestamp:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      uptime:
+        example: 2h30m15s
+        type: string
+      version:
+        example: 1.0.0
+        type: string
+    type: object
+  internal_server_handlers.InfoResponse:
+    description: Comprehensive server information and capabilities
+    properties:
+      description:
+        example: Lorem Ipsum for Documents
+        type: string
+      endpoints:
+        additionalProperties:
+          type: string
+        type: object
+      limits:
+        $ref: '#/definitions/internal_server_handlers.Limits'
+      name:
+        example: pseudoc
+        type: string
+      server_info:
+        $ref: '#/definitions/internal_server_handlers.ServerInfo'
+      supported_formats:
+        example:
+        - pdf
+        - docx
+        - xlsx
+        items:
+          type: string
+        type: array
+      version:
+        example: 1.0.0
+        type: string
+    type: object
+  internal_server_handlers.Limits:
+    properties:
+      max_file_size_bytes:
+        type: integer
+      max_pages:
+        type: integer
+      max_sheets:
+        type: integer
+      rate_limit_per_minute:
+        type: integer
+      request_timeout:
+        $ref: '#/definitions/time.Duration'
+    type: object
+  internal_server_handlers.ServerInfo:
+    properties:
+      architecture:
+        type: string
+      go_version:
+        type: string
+      platform:
+        type: string
+      start_time:
+        type: string
+      uptime:
+        type: string
+    type: object
+  internal_server_handlers.SystemInfo:
+    properties:
+      goroutine_count:
+        type: integer
+      memory_usage_mb:
+        type: integer
+    type: object
+  internal_server_handlers.ValidationError:
+    description: Detailed validation error information
+    properties:
+      field:
+        example: pages
+        type: string
+      message:
+        example: pages must be between 1 and 100
+        type: string
+      value:
+        example: "150"
+        type: string
+    type: object
+  time.Duration:
+    enum:
+    - -9223372036854775808
+    - 9223372036854775807
+    - 1
+    - 1000
+    - 1000000
+    - 1000000000
+    - 60000000000
+    - 3600000000000
+    format: int64
+    type: integer
+    x-enum-varnames:
+    - minDuration
+    - maxDuration
+    - Nanosecond
+    - Microsecond
+    - Millisecond
+    - Second
+    - Minute
+    - Hour
+host: localhost:8080
+info:
+  contact:
+    name: Pseudoc Support
+    url: https://github.com/engineervix/pseudoc/issues
+  description: Lorem Ipsum for Documents - Generate placeholder documents for testing
+    and development workflows
+  license:
+    name: BSD-3-Clause
+    url: https://github.com/engineervix/pseudoc/blob/main/LICENSE.md
+  termsOfService: https://github.com/engineervix/pseudoc
+  title: Pseudoc API
+  version: 1.0.0
+paths:
+  /generate:
+    post:
+      consumes:
+      - application/json
+      description: Generate a document using JSON request body. Provides more flexibility
+        than GET endpoint.
+      parameters:
+      - description: Document generation parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_handlers.GenerateRequest'
+      produces:
+      - application/pdf
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: Generated document file
+          schema:
+            type: file
+        "400":
+          description: Invalid request body or parameters
+          schema:
+            $ref: '#/definitions/internal_server_handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_server_handlers.ErrorResponse'
+      summary: Generate document via POST request
+      tags:
+      - documents
+  /generate/{type}:
+    get:
+      consumes:
+      - application/json
+      description: Generate a document using URL path parameter and query parameters.
+        Supports PDF, DOCX, XLSX, and random document types.
+      parameters:
+      - description: Document type
+        enum:
+        - pdf
+        - docx
+        - xlsx
+        - random
+        example: pdf
+        in: path
+        name: type
+        required: true
+        type: string
+      - default: 3
+        description: Number of pages (PDF/DOCX only)
+        example: 5
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pages
+        type: integer
+      - default: 2
+        description: Number of sheets (XLSX only)
+        example: 3
+        in: query
+        maximum: 10
+        minimum: 1
+        name: sheets
+        type: integer
+      - description: Random seed for reproducible generation
+        example: 42
+        format: int64
+        in: query
+        name: seed
+        type: integer
+      - description: Custom filename (without extension)
+        example: my-document
+        in: query
+        name: filename
+        type: string
+      produces:
+      - application/pdf
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: Generated document file
+          schema:
+            type: file
+        "400":
+          description: Invalid parameters
+          schema:
+            $ref: '#/definitions/internal_server_handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_server_handlers.ErrorResponse'
+      summary: Generate document via GET request
+      tags:
+      - documents
+  /health:
+    get:
+      description: Returns the current health status of the server
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Server is healthy
+          schema:
+            $ref: '#/definitions/internal_server_handlers.HealthResponse'
+        "503":
+          description: Server is unhealthy
+          schema:
+            $ref: '#/definitions/internal_server_handlers.ErrorResponse'
+      summary: Health check endpoint
+      tags:
+      - health
+  /info:
+    get:
+      description: Returns detailed information about the server including supported
+        formats, limits, and runtime info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Server information
+          schema:
+            $ref: '#/definitions/internal_server_handlers.InfoResponse'
+      summary: Get server information
+      tags:
+      - info
+schemes:
+- http
+- https
+swagger: "2.0"
+tags:
+- description: Document generation endpoints for PDF, DOCX, XLSX, and random document
+    types
+  name: documents
+- description: Health check and server information endpoints
+  name: health
+- description: Server information and capabilities
+  name: info

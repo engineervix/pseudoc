@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -20,6 +21,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/time/rate"
+
+	_ "github.com/engineervix/pseudoc/docs" // Generated docs
+	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
 // Server wraps the Echo server with configuration and metrics
@@ -299,17 +303,30 @@ func (s *Server) setupMiddleware() {
 	if s.config.RateLimit > 0 {
 		s.echo.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 			Skipper: func(c echo.Context) bool {
-				// Skip rate limiting for the random endpoint as it's lightweight type selection
-				// The random endpoint just selects a document type and generates, similar to a redirect
 				path := c.Request().URL.Path
 				method := c.Request().Method
 
-				// Skip rate limiting for GET requests to /random for consistency with redirect behavior
+				// Skip rate limiting for Swagger UI assets and documentation
+				if strings.HasPrefix(path, "/swagger/") || path == "/docs" {
+					return true
+				}
+
+				// Skip rate limiting for health check endpoints
+				if path == "/health" || path == "/api/v1/health" {
+					return true
+				}
+
+				// Skip rate limiting for info endpoint (lightweight)
+				if path == "/api/v1/info" {
+					return true
+				}
+
+				// Skip rate limiting for the random endpoint as it's lightweight type selection
 				if method == http.MethodGet && path == "/api/v1/generate/random" {
 					return true
 				}
 
-				// Apply rate limiting to all other endpoints (actual document generation)
+				// Apply rate limiting to document generation endpoints
 				return false
 			},
 			Store: middleware.NewRateLimiterMemoryStore(
@@ -325,9 +342,13 @@ func (s *Server) setupMiddleware() {
 				})
 			},
 			DenyHandler: func(c echo.Context, identifier string, err error) error {
-				return c.JSON(http.StatusTooManyRequests, map[string]string{
-					"error":   "rate limit exceeded",
-					"message": "You have made too many requests. Please try again later.",
+				// Log the rate limit violation
+				c.Logger().Warnf("Rate limit exceeded for IP: %s, path: %s", identifier, c.Request().URL.Path)
+
+				return c.JSON(http.StatusTooManyRequests, map[string]interface{}{
+					"error":      "rate limit exceeded",
+					"message":    "You have made too many requests. Please try again later.",
+					"request_id": c.Response().Header().Get(echo.HeaderXRequestID),
 				})
 			},
 		}))
@@ -423,11 +444,11 @@ func (s *Server) setupMiddleware() {
 
 // setupRoutes configures the API routes
 func (s *Server) setupRoutes() {
-	// Health check endpoint
-	s.echo.GET("/health", handlers.NewHealthHandler(s.metrics))
-
 	// API v1 group
 	api := s.echo.Group("/api/v1")
+
+	// Health check endpoint (moved to API v1 for consistency)
+	api.GET("/health", handlers.NewHealthHandler(s.metrics))
 
 	// Document generation endpoints
 	docHandler := handlers.NewDocumentHandler(&s.config, s.metrics)
@@ -440,6 +461,9 @@ func (s *Server) setupRoutes() {
 
 	// Server info endpoint
 	api.GET("/info", handlers.NewInfoHandler(&s.config))
+
+	// Legacy health check endpoint at root level for backward compatibility
+	s.echo.GET("/health", handlers.NewHealthHandler(s.metrics))
 
 	// Metrics endpoint (if enabled)
 	if s.config.EnableMetrics {
@@ -468,6 +492,14 @@ func (s *Server) setupRoutes() {
 			return c.NoContent(http.StatusNoContent)
 		})
 	}
+
+	// Swagger documentation
+	s.echo.GET("/swagger/*", echoSwagger.WrapHandler)
+
+	// Optional: Redirect /docs to /swagger/index.html
+	s.echo.GET("/docs", func(c echo.Context) error {
+		return c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
+	})
 }
 
 // metricsMiddleware tracks request metrics and performance

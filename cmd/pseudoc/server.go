@@ -10,6 +10,31 @@ import (
 	"github.com/engineervix/pseudoc/internal/server"
 )
 
+// @title Pseudoc API
+// @version 1.0.0
+// @description Lorem Ipsum for Documents - Generate placeholder documents for testing and development workflows
+// @termsOfService https://github.com/engineervix/pseudoc
+
+// @contact.name Pseudoc Support
+// @contact.url https://github.com/engineervix/pseudoc/issues
+
+// @license.name BSD-3-Clause
+// @license.url https://github.com/engineervix/pseudoc/blob/main/LICENSE.md
+
+// @host localhost:8080
+// @BasePath /api/v1
+
+// @schemes http https
+
+// @tag.name documents
+// @tag.description Document generation endpoints for PDF, DOCX, XLSX, and random document types
+
+// @tag.name health
+// @tag.description Health check and server information endpoints
+
+// @tag.name info
+// @tag.description Server information and capabilities
+
 // runServer handles the server command
 func runServer(args []string) error {
 	// Initialize server config with defaults
@@ -31,7 +56,8 @@ func runServer(args []string) error {
 	fmt.Printf("pseudoc server starting...\n")
 	fmt.Printf("Address: %s\n", cfg.GetAddress())
 	fmt.Printf("API Base: %s/api/v1\n", cfg.GetBaseURL())
-	fmt.Printf("Health: %s/health\n", cfg.GetBaseURL())
+	fmt.Printf("Health: %s/api/v1/health (also available at %s/health)\n", cfg.GetBaseURL(), cfg.GetBaseURL())
+	fmt.Printf("API Docs: %s/swagger/index.html\n", cfg.GetBaseURL())
 
 	if cfg.EnableMetrics {
 		fmt.Printf("Metrics: %s/metrics\n", cfg.GetBaseURL())
@@ -165,6 +191,8 @@ func printServerUsage() {
 	fmt.Println("       ?pages=N&sheets=N&seed=N&filename=NAME")
 	fmt.Println("  POST /api/v1/generate                Generate document with JSON body")
 	fmt.Println("       {\"type\":\"pdf\",\"pages\":3,\"seed\":42}")
+	fmt.Println("  GET  /swagger/index.html             Interactive API documentation")
+	fmt.Println("  GET  /docs                           Redirect to API documentation")
 	fmt.Println("  GET  /metrics                        Server metrics (if --metrics enabled)")
 	fmt.Println()
 	fmt.Println("SUPPORTED DOCUMENT TYPES:")

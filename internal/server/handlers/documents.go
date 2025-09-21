@@ -36,32 +36,48 @@ func NewDocumentHandler(cfg *config.ServerConfig, metrics ServerMetricsInterface
 }
 
 // GenerateRequest represents the JSON request body for POST /api/v1/generate
+// @Description Request body for document generation via POST
 type GenerateRequest struct {
-	Type     string `json:"type"`
-	Pages    int    `json:"pages,omitempty"`
-	Sheets   int    `json:"sheets,omitempty"`
-	Seed     int64  `json:"seed,omitempty"`
-	Filename string `json:"filename,omitempty"`
+	Type     string `json:"type" example:"pdf" enums:"pdf,docx,xlsx,random" validate:"required"`
+	Pages    int    `json:"pages,omitempty" example:"5" minimum:"1" maximum:"100"`
+	Sheets   int    `json:"sheets,omitempty" example:"3" minimum:"1" maximum:"10"`
+	Seed     int64  `json:"seed,omitempty" example:"42"`
+	Filename string `json:"filename,omitempty" example:"my-document"`
 }
 
 // ValidationError represents a validation error with details
+// @Description Detailed validation error information
 type ValidationError struct {
-	Field   string `json:"field"`
-	Value   string `json:"value"`
-	Message string `json:"message"`
+	Field   string `json:"field" example:"pages"`
+	Value   string `json:"value" example:"150"`
+	Message string `json:"message" example:"pages must be between 1 and 100"`
 }
 
 // ErrorResponse represents an error response with enhanced information
+// @Description Standard error response format
 type ErrorResponse struct {
-	Error      string            `json:"error"`
-	Message    string            `json:"message"`
-	Code       int               `json:"code"`
-	RequestID  string            `json:"request_id,omitempty"`
+	Error      string            `json:"error" example:"Invalid document type"`
+	Message    string            `json:"message" example:"Supported types: pdf, docx, xlsx, random"`
+	Code       int               `json:"code" example:"400"`
+	RequestID  string            `json:"request_id,omitempty" example:"req_123456789"`
 	Validation []ValidationError `json:"validation_errors,omitempty"`
 }
 
 // GenerateGET handles GET requests for document generation
-// URL format: /api/v1/generate/{type}?pages=3&sheets=2&seed=42&filename=mydoc
+// @Summary Generate document via GET request
+// @Description Generate a document using URL path parameter and query parameters. Supports PDF, DOCX, XLSX, and random document types.
+// @Tags documents
+// @Accept json
+// @Produce application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param type path string true "Document type" Enums(pdf,docx,xlsx,random) example(pdf)
+// @Param pages query int false "Number of pages (PDF/DOCX only)" minimum(1) maximum(100) default(3) example(5)
+// @Param sheets query int false "Number of sheets (XLSX only)" minimum(1) maximum(10) default(2) example(3)
+// @Param seed query int64 false "Random seed for reproducible generation" example(42)
+// @Param filename query string false "Custom filename (without extension)" example(my-document)
+// @Success 200 {file} file "Generated document file"
+// @Failure 400 {object} ErrorResponse "Invalid parameters"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /generate/{type} [get]
 func (h *DocumentHandler) GenerateGET(c echo.Context) error {
 	// Get request ID for error responses
 	requestID := c.Response().Header().Get(echo.HeaderXRequestID)
@@ -107,6 +123,16 @@ func (h *DocumentHandler) GenerateGET(c echo.Context) error {
 }
 
 // GeneratePOST handles POST requests for document generation
+// @Summary Generate document via POST request
+// @Description Generate a document using JSON request body. Provides more flexibility than GET endpoint.
+// @Tags documents
+// @Accept json
+// @Produce application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param request body GenerateRequest true "Document generation parameters"
+// @Success 200 {file} file "Generated document file"
+// @Failure 400 {object} ErrorResponse "Invalid request body or parameters"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /generate [post]
 func (h *DocumentHandler) GeneratePOST(c echo.Context) error {
 	requestID := c.Response().Header().Get(echo.HeaderXRequestID)
 

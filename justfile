@@ -77,10 +77,24 @@ build-release:
 build-multi:
     build/multi_platform.sh
 
+# 📚 Generate OpenAPI/Swagger documentation
+docs:
+    @echo "📚 Generating OpenAPI documentation..."
+    swag init -g cmd/pseudoc/server.go -o docs --parseDependency --parseInternal
+    @echo "✅ Documentation generated in docs/ directory"
+    @echo "   • docs/docs.go - Go package with embedded docs"
+    @echo "   • docs/swagger.json - JSON specification"
+    @echo "   • docs/swagger.yaml - YAML specification"
+
 # 🧹 Clean build artifacts
 clean:
     rm -rf bin/
     rm -f coverage.out coverage.html
+
+# 🧹 Clean build artifacts and generated docs
+clean-all: clean
+    rm -f docs/docs.go docs/swagger.json docs/swagger.yaml
+    @echo "🧹 Cleaned build artifacts and generated documentation"
 
 # 🚀 Run the tool locally (for testing)
 run *ARGS:

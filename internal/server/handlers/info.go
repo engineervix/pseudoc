@@ -11,11 +11,12 @@ import (
 )
 
 // InfoResponse represents server information
+// @Description Comprehensive server information and capabilities
 type InfoResponse struct {
-	Name             string            `json:"name"`
-	Version          string            `json:"version"`
-	Description      string            `json:"description"`
-	SupportedFormats []string          `json:"supported_formats"`
+	Name             string            `json:"name" example:"pseudoc"`
+	Version          string            `json:"version" example:"1.0.0"`
+	Description      string            `json:"description" example:"Lorem Ipsum for Documents"`
+	SupportedFormats []string          `json:"supported_formats" example:"pdf,docx,xlsx"`
 	Endpoints        map[string]string `json:"endpoints"`
 	ServerInfo       ServerInfo        `json:"server_info"`
 	Limits           Limits            `json:"limits"`
@@ -42,6 +43,12 @@ type Limits struct {
 var serverStartTime = time.Now()
 
 // NewInfoHandler creates a new server info handler
+// @Summary Get server information
+// @Description Returns detailed information about the server including supported formats, limits, and runtime info
+// @Tags info
+// @Produce json
+// @Success 200 {object} InfoResponse "Server information"
+// @Router /info [get]
 func NewInfoHandler(cfg *config.ServerConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		baseURL := cfg.GetBaseURL()

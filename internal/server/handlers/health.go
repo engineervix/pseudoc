@@ -11,11 +11,12 @@ import (
 )
 
 // HealthResponse represents the health check response
+// @Description Server health status information
 type HealthResponse struct {
-	Status    string        `json:"status"`
-	Timestamp time.Time     `json:"timestamp"`
-	Version   string        `json:"version"`
-	Uptime    string        `json:"uptime"`
+	Status    string        `json:"status" example:"healthy"`
+	Timestamp time.Time     `json:"timestamp" example:"2024-01-15T10:30:00Z"`
+	Version   string        `json:"version" example:"1.0.0"`
+	Uptime    string        `json:"uptime" example:"2h30m15s"`
 	System    *SystemInfo   `json:"system,omitempty"`
 	Checks    []CheckResult `json:"checks,omitempty"`
 }
@@ -39,6 +40,13 @@ type HealthChecker interface {
 }
 
 // NewHealthHandler creates a new health check handler
+// @Summary Health check endpoint
+// @Description Returns the current health status of the server
+// @Tags health
+// @Produce json
+// @Success 200 {object} HealthResponse "Server is healthy"
+// @Failure 503 {object} ErrorResponse "Server is unhealthy"
+// @Router /health [get]
 func NewHealthHandler(checker HealthChecker) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		// System info

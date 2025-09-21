@@ -1,6 +1,6 @@
 {
   "name": "pseudoc",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A tool for generating placeholder documents to support testing and development workflows",
   "private": true,
   "author": "Victor Miti",
