@@ -1,22 +1,178 @@
-# README
+# pseudoc - Lorem Ipsum for Documents
 
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/engineervix/pseudoc)
 [![CI/CD](https://github.com/engineervix/pseudoc/actions/workflows/main.yml/badge.svg)](https://github.com/engineervix/pseudoc/actions/workflows/main.yml)
 
-## Resources
+`pseudoc` is a tool for generating placeholder documents to support testing and development workflows. Similar to how [Lorem Ipsum](https://en.wikipedia.org/wiki/Lorem_ipsum) provides placeholder text and [picsum.photos](https://picsum.photos) provides placeholder images, pseudoc generates various types of fake documents to aid in development and testing scenarios.
 
-### Project structure
+## Features
 
-- https://github.com/golang-standards/project-layout
-- https://go.dev/doc/modules/layout
-- https://devopsian.net/p/how-to-structure-a-go-project-start-simple-refactor-later/
-- https://boyter.org/posts/how-to-start-go-project-2023/
-- https://medium.com/@juno.the.programmer/initiate-a-go-project-fad483cfb8f0
-- https://www.oreilly.com/library/view/powerful-command-line-applications/9781680509311/
+- **Multiple Document Formats**: Generate PDF, DOCX, and XLSX files.
+- **Dual Interface**: Use it as a command-line tool or as an HTTP server.
+- **Customizable Output**: Control the number of documents, pages, sheets, and filenames.
+- **Reproducible Generation**: Use a seed to generate the same documents every time.
+- **Cross-Platform**: A single, self-contained binary for all major platforms (Windows, macOS, Linux).
+- **Lightweight & Fast**: Minimal dependencies and optimized for quick document generation.
 
-### Third-party packages
+## Installation
 
-- https://github.com/brianvoe/gofakeit
-- https://github.com/qax-os/excelize
-- https://github.com/gomutex/godocx
-- https://github.com/johnfercher/maroto
+### Pre-compiled Binaries
+
+Pre-compiled binaries for all major platforms are available in the [`bin/`](./bin) directory and on the [GitHub Releases](https://github.com/engineervix/pseudoc/releases) page. Download the appropriate binary for your system, make it executable, and you're ready to go.
+
+### From Source
+
+If you have Go installed, you can build `pseudoc` from source:
+
+```sh
+git clone https://github.com/engineervix/pseudoc.git
+cd pseudoc
+go build -o bin/pseudoc ./cmd/pseudoc
+```
+
+## Usage
+
+`pseudoc` can be used as a command-line tool or as an HTTP server.
+
+### Command-Line Interface (CLI)
+
+The CLI is perfect for scripting and local document generation.
+
+#### Commands and Options
+
+```
+USAGE:
+  pseudoc [command] [options]
+
+COMMANDS:
+  pdf                          Generate PDF document
+  docx, word                   Generate Word document
+  xlsx, spreadsheet, sheet     Generate Excel spreadsheet
+  random                       Generate random document type
+  serve, server                Start HTTP API server
+  version, -v, --version       Show version information
+  help, -h, --help             Show this help message
+
+OPTIONS:
+  --count N                    Number of documents to generate (default: 1)
+  --output-dir DIR             Directory to store output files (default: current directory)
+  --filename NAME              Base filename (default: auto-generated with timestamp)
+  --seed VALUE                 Set random seed for reproducible output
+  --quiet                      Suppress output for scripting
+  --dry-run                    Preview what would be generated without creating files
+
+FORMAT-SPECIFIC OPTIONS:
+  --pages N                    For PDF/DOCX: Number of pages (default: 1)
+  --sheets N                   For XLSX: Number of sheets (default: 1)
+```
+
+#### Examples
+
+- **Generate a single PDF:**
+
+    ```sh
+    pseudoc pdf
+    ```
+
+- **Generate 5 Word documents with 3 pages each:**
+
+    ```sh
+    pseudoc docx --count 5 --pages 3
+    ```
+
+- **Generate an Excel file with a custom filename and 4 sheets:**
+
+    ```sh
+    pseudoc xlsx --filename my-data --sheets 4
+    ```
+
+- **Generate 10 random documents in a specific directory:**
+
+    ```sh
+    pseudoc random --count 10 --output-dir ./test-files
+    ```
+
+- **Generate reproducible documents with a seed:**
+
+    ```sh
+    pseudoc random --seed 42 --count 5
+    ```
+
+### HTTP API Server
+
+Start the server to generate documents via HTTP requests. This is useful for integrations and for services like [picsum.photos](https://picsum.photos).
+
+#### Starting the Server
+
+```sh
+pseudoc serve
+```
+
+By default, the server starts on `localhost:8080` in **development** mode. You can customize the host, port, and environment:
+
+```sh
+pseudoc serve --host 0.0.0.0 --port 3000 --env production
+```
+
+#### Server Environments
+
+- **development (default)**: Optimized for local testing. Security features like HSTS are disabled to allow for easy testing over plain HTTP.
+- **production**: Intended for deployment. Stricter security headers are enabled. The server should be run behind a TLS proxy (like Nginx or a cloud load balancer) in this mode.
+
+#### API Endpoints
+
+- `GET /health`: Health check endpoint.
+- `GET /api/v1/info`: Returns server information and capabilities.
+- `GET /api/v1/generate/{type}`: Generate a document.
+- `POST /api/v1/generate`: Generate a document with a JSON config.
+
+#### API Examples
+
+- **Generate a 3-page PDF using a GET request:**
+
+    ```sh
+    curl "http://localhost:8080/api/v1/generate/pdf?pages=3" -o document.pdf
+    ```
+
+- **Generate a random document with a specific seed:**
+
+    ```sh
+    curl "http://localhost:8080/api/v1/generate/random?seed=42" -o random-doc
+    ```
+
+- **Generate a 5-page DOCX using a POST request:**
+
+    ```sh
+    curl -X POST "http://localhost:8080/api/v1/generate" \
+      -H "Content-Type: application/json" \
+      -d '{"type":"docx","pages":5,"seed":123}' \
+      -o document.docx
+    ```
+
+When using the `GET /api/v1/generate/random` endpoint, the server will redirect you to the endpoint of the randomly selected document type (e.g., `/api/v1/generate/pdf`). This allows command-line tools like `curl` to automatically follow the redirect and save the file with the correct name and extension.
+
+Use the `-L` flag to follow redirects, `-J` to use the server-provided filename, and `-O` to save the file to disk:
+
+```sh
+# The server will redirect to the correct document type endpoint
+curl -L -J -O "http://localhost:8080/api/v1/generate/random?seed=42"
+```
+
+For `POST` requests, the `X-Pseudoc-Generated-Type` response header is still used to indicate the generated document type.
+
+## Development
+
+This project uses `just` as a command runner. See the [`justfile`](./justfile) for available commands.
+
+- **Build the project:**
+    ```sh
+    just build
+    ```
+- **Run tests:**
+    ```sh
+    just test
+    ```
+- **Run the tool locally:**
+    ```sh
+    just run -- pdf --count 2
+    ```
