@@ -179,30 +179,33 @@ func TestDocumentHandler_GenerateGET_Random(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if rec.Code != http.StatusTemporaryRedirect {
-		t.Errorf("Expected status 307, got %d", rec.Code)
+	// Should now generate document directly instead of redirecting
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
 	}
 
-	// With a fixed seed, the redirect location should be deterministic
-	location := rec.Header().Get("Location")
-	if !strings.HasPrefix(location, "/api/v1/generate/") {
-		t.Errorf("Expected redirect to a generate endpoint, got %s", location)
-	}
-	if !strings.Contains(location, "seed=42") {
-		t.Errorf("Expected redirect URL to contain the original query parameters, got %s", location)
+	// Should have the generated document type header
+	generatedType := rec.Header().Get("X-Pseudoc-Generated-Type")
+	if generatedType == "" {
+		t.Error("Expected X-Pseudoc-Generated-Type header to be set")
 	}
 
-	// Verify that the redirected document type is one of the valid types
+	// With a fixed seed, the generated type should be deterministic
 	validTypes := []string{"pdf", "docx", "xlsx"}
 	isTypeValid := false
 	for _, validType := range validTypes {
-		if strings.Contains(location, "/"+validType+"?") {
+		if generatedType == validType {
 			isTypeValid = true
 			break
 		}
 	}
 	if !isTypeValid {
-		t.Errorf("Redirect URL does not contain a valid document type: %s", location)
+		t.Errorf("Generated type is not valid: %s", generatedType)
+	}
+
+	// Should have content
+	if rec.Body.Len() == 0 {
+		t.Error("Expected response body to contain generated document")
 	}
 }
 

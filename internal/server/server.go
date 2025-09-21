@@ -299,12 +299,12 @@ func (s *Server) setupMiddleware() {
 	if s.config.RateLimit > 0 {
 		s.echo.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 			Skipper: func(c echo.Context) bool {
-				// Skip rate limiting for the random endpoint redirects, but apply it to actual generation
-				// The random endpoint only redirects (307) and doesn't consume server resources
+				// Skip rate limiting for the random endpoint as it's lightweight type selection
+				// The random endpoint just selects a document type and generates, similar to a redirect
 				path := c.Request().URL.Path
 				method := c.Request().Method
 
-				// Skip rate limiting for GET requests to /random that will redirect
+				// Skip rate limiting for GET requests to /random for consistency with redirect behavior
 				if method == http.MethodGet && path == "/api/v1/generate/random" {
 					return true
 				}

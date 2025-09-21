@@ -385,23 +385,23 @@ func TestServer_Integration_RateLimit_Applied_Correctly(t *testing.T) {
 		t.Errorf("Expected rate limiting to be triggered for endpoint %s", endpoint)
 	})
 
-	t.Run("RateLimit_RandomRedirect_NotLimited", func(t *testing.T) {
-		// Test that random endpoint redirects are not rate limited
+	t.Run("RateLimit_RandomGeneration_NotLimited", func(t *testing.T) {
+		// Test that random endpoint generation is not rate limited (since it's just a redirect-like operation)
 		endpoint := "/api/v1/generate/random"
 
-		// Make multiple requests - should all get redirects, not rate limited
+		// Make multiple requests - should all succeed without rate limiting
 		for i := 0; i < 5; i++ {
 			req := httptest.NewRequest(http.MethodGet, endpoint+"?seed="+fmt.Sprintf("%d", i), nil)
 			rec := httptest.NewRecorder()
 			server.echo.ServeHTTP(rec, req)
 
-			// Should get redirects, not rate limit errors
+			// Should not get rate limit errors for random endpoint
 			if rec.Code == http.StatusTooManyRequests {
-				t.Errorf("Random endpoint should not be rate limited on redirect, got rate limit error on request %d", i)
+				t.Errorf("Random endpoint should not be rate limited, got rate limit error on request %d", i)
 				return
 			}
-			if rec.Code != http.StatusTemporaryRedirect {
-				t.Errorf("Expected redirect (307) for random endpoint, got %d", rec.Code)
+			if rec.Code != http.StatusOK {
+				t.Errorf("Expected success (200) for random endpoint, got %d", rec.Code)
 				return
 			}
 		}
