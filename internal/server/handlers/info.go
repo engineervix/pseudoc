@@ -74,8 +74,8 @@ func NewInfoHandler(cfg *config.ServerConfig) echo.HandlerFunc {
 				MaxFileSize:    cfg.MaxFileSize,
 				RequestTimeout: cfg.RequestTimeout,
 				RateLimit:      cfg.RateLimit,
-				MaxPages:       100, // Reasonable defaults
-				MaxSheets:      50,
+				MaxPages:       config.MaxPages,
+				MaxSheets:      config.MaxSheets,
 			},
 		}
 

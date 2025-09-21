@@ -268,6 +268,14 @@ func TestServer_Integration_HealthAndInfo(t *testing.T) {
 	if len(infoResp.SupportedFormats) != len(expectedFormats) {
 		t.Errorf("Expected %d supported formats, got %d", len(expectedFormats), len(infoResp.SupportedFormats))
 	}
+
+	// Verify that limits use config constants, not hardcoded values
+	if infoResp.Limits.MaxPages != config.MaxPages {
+		t.Errorf("Expected MaxPages to be %d (from config.MaxPages), got %d", config.MaxPages, infoResp.Limits.MaxPages)
+	}
+	if infoResp.Limits.MaxSheets != config.MaxSheets {
+		t.Errorf("Expected MaxSheets to be %d (from config.MaxSheets), got %d", config.MaxSheets, infoResp.Limits.MaxSheets)
+	}
 }
 
 func TestServer_Integration_CORS_Disabled_By_Default(t *testing.T) {
