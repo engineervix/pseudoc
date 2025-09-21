@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -381,31 +383,53 @@ func (h *DocumentHandler) generateAndStream(c echo.Context, cfg *config.Config) 
 		})
 	}
 
-	// Update metrics
+	// Generate filename for response headers
+	filename := h.generateFilename(cfg)
+
+	// Generate the document to a buffer first to handle errors properly
+	var buf bytes.Buffer
+	if err := gen.Generate(&buf, cfg); err != nil {
+		// Since we haven't sent headers yet, we can return a proper JSON error
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:     "Document generation failed",
+			Message:   "Failed to generate document: " + err.Error(),
+			Code:      http.StatusInternalServerError,
+			RequestID: c.Response().Header().Get(echo.HeaderXRequestID),
+		})
+	}
+
+	// Check if the generated document exceeds the maximum file size
+	if int64(buf.Len()) > h.config.MaxFileSize {
+		return c.JSON(http.StatusRequestEntityTooLarge, ErrorResponse{
+			Error:     "Document too large",
+			Message:   fmt.Sprintf("Generated document size (%d bytes) exceeds maximum allowed size (%d bytes)", buf.Len(), h.config.MaxFileSize),
+			Code:      http.StatusRequestEntityTooLarge,
+			RequestID: c.Response().Header().Get(echo.HeaderXRequestID),
+		})
+	}
+
+	// Update metrics only after successful generation
 	if h.metrics != nil {
 		h.metrics.IncrementDocumentCount(cfg.DocType)
 	}
-
-	// Generate filename for response headers
-	filename := h.generateFilename(cfg)
 
 	// Set response headers
 	c.Response().Header().Set("Content-Type", h.getContentType(cfg.DocType))
 	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	c.Response().Header().Set("X-Pseudoc-Generated-Type", cfg.DocType)
+	c.Response().Header().Set("Content-Length", fmt.Sprintf("%d", buf.Len()))
 
 	// Set cache headers to prevent caching of generated documents
 	c.Response().Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.Response().Header().Set("Pragma", "no-cache")
 	c.Response().Header().Set("Expires", "0")
 
-	// Generate the document and stream it directly to the response
+	// Stream the buffer content to the response
 	c.Response().WriteHeader(http.StatusOK)
-
-	if err := gen.Generate(c.Response().Writer, cfg); err != nil {
-		// At this point headers are already sent, so we can't return a JSON error
-		// Log the error with request context
-		c.Logger().Errorf("Document generation failed for request %s: %v",
+	_, err = io.Copy(c.Response().Writer, &buf)
+	if err != nil {
+		// Log the error, but we can't change the response at this point
+		c.Logger().Errorf("Failed to stream document for request %s: %v",
 			c.Response().Header().Get(echo.HeaderXRequestID), err)
 		return err
 	}

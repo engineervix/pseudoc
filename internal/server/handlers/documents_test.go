@@ -360,6 +360,47 @@ func TestDocumentHandler_GeneratePOST_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestDocumentHandler_GenerateAndStream_ErrorHandling(t *testing.T) {
+	// Setup with very small max file size to trigger size limit
+	cfg := config.DefaultServerConfig()
+	cfg.MaxFileSize = 100 // Very small limit to trigger error
+	handler := NewDocumentHandler(&cfg, newMockMetrics())
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/generate/pdf", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("type")
+	c.SetParamValues("pdf")
+
+	// Execute
+	err := handler.GenerateGET(c)
+
+	// Assert - should get a proper JSON error response, not a streaming error
+	if err != nil {
+		t.Errorf("Expected no error from handler, got %v", err)
+	}
+
+	// Should get 413 Request Entity Too Large
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("Expected status 413 (Request Entity Too Large), got %d", rec.Code)
+	}
+
+	// Should get proper JSON error response
+	var errorResp ErrorResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &errorResp); err != nil {
+		t.Errorf("Failed to parse error response: %v", err)
+	}
+
+	if errorResp.Error != "Document too large" {
+		t.Errorf("Expected error 'Document too large', got '%s'", errorResp.Error)
+	}
+
+	if errorResp.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("Expected error code 413, got %d", errorResp.Code)
+	}
+}
+
 func TestDocumentHandler_GeneratePOST_MissingType(t *testing.T) {
 	cfg := config.DefaultServerConfig()
 	handler := NewDocumentHandler(&cfg, newMockMetrics())
