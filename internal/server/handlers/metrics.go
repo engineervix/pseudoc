@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/engineervix/pseudoc/internal/config"
 )
 
 // MetricsResponse represents comprehensive server metrics
@@ -128,7 +130,7 @@ func NewMetricsHandler(metricsProvider MetricsProvider) echo.HandlerFunc {
 				GC: GCStats{
 					NumGC:        m.NumGC,
 					LastGC:       lastGC,
-					PauseTotalMs: m.PauseTotalNs / 1000000, // Convert to milliseconds
+					PauseTotalMs: m.PauseTotalNs / config.NanosecondsToMilliseconds, // Convert to milliseconds
 					NextGCMB:     bToMb(m.NextGC),
 				},
 			},

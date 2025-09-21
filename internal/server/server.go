@@ -261,7 +261,7 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 
 // generateRequestID creates a simple request ID
 func generateRequestID() string {
-	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), time.Now().Unix()%1000)
+	return fmt.Sprintf("%d%s%d", time.Now().UnixNano(), config.RequestIDSeparator, time.Now().Unix()%config.RequestIDTimestampModulo)
 }
 
 // Start starts the HTTP server with graceful shutdown

@@ -169,8 +169,8 @@ func (h *DocumentHandler) parseAndValidateQueryParams(c echo.Context, cfg *confi
 		if pages < 1 {
 			return fmt.Errorf("pages must be at least 1, got %d", pages)
 		}
-		if pages > 100 { // Configurable limit
-			return fmt.Errorf("pages cannot exceed 100, got %d", pages)
+		if pages > config.MaxPages {
+			return fmt.Errorf("pages cannot exceed %d, got %d", config.MaxPages, pages)
 		}
 		cfg.Pages = pages
 	}
@@ -184,8 +184,8 @@ func (h *DocumentHandler) parseAndValidateQueryParams(c echo.Context, cfg *confi
 		if sheets < 1 {
 			return fmt.Errorf("sheets must be at least 1, got %d", sheets)
 		}
-		if sheets > 50 { // Configurable limit
-			return fmt.Errorf("sheets cannot exceed 50, got %d", sheets)
+		if sheets > config.MaxSheets {
+			return fmt.Errorf("sheets cannot exceed %d, got %d", config.MaxSheets, sheets)
 		}
 		cfg.Sheets = sheets
 	}
@@ -231,11 +231,11 @@ func (h *DocumentHandler) validateGenerateRequest(req *GenerateRequest) []Valida
 			Message: "pages cannot be negative",
 		})
 	}
-	if req.Pages > 100 {
+	if req.Pages > config.MaxPages {
 		errors = append(errors, ValidationError{
 			Field:   "pages",
 			Value:   fmt.Sprintf("%d", req.Pages),
-			Message: "pages cannot exceed 100",
+			Message: fmt.Sprintf("pages cannot exceed %d", config.MaxPages),
 		})
 	}
 
@@ -247,11 +247,11 @@ func (h *DocumentHandler) validateGenerateRequest(req *GenerateRequest) []Valida
 			Message: "sheets cannot be negative",
 		})
 	}
-	if req.Sheets > 50 {
+	if req.Sheets > config.MaxSheets {
 		errors = append(errors, ValidationError{
 			Field:   "sheets",
 			Value:   fmt.Sprintf("%d", req.Sheets),
-			Message: "sheets cannot exceed 50",
+			Message: fmt.Sprintf("sheets cannot exceed %d", config.MaxSheets),
 		})
 	}
 
@@ -274,8 +274,8 @@ func (h *DocumentHandler) validateFilename(filename string) error {
 	if len(filename) == 0 {
 		return fmt.Errorf("filename cannot be empty")
 	}
-	if len(filename) > 255 {
-		return fmt.Errorf("filename too long (max 255 characters)")
+	if len(filename) > config.MaxFilenameLength {
+		return fmt.Errorf("filename too long (max %d characters)", config.MaxFilenameLength)
 	}
 
 	// Check for invalid characters (Windows + Unix)
@@ -287,9 +287,8 @@ func (h *DocumentHandler) validateFilename(filename string) error {
 	}
 
 	// Check for reserved names (Windows)
-	reserved := []string{"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}
 	upperFilename := strings.ToUpper(filename)
-	for _, name := range reserved {
+	for _, name := range config.WindowsReservedFilenames {
 		if upperFilename == name {
 			return fmt.Errorf("filename '%s' is reserved", filename)
 		}
@@ -409,7 +408,7 @@ func (h *DocumentHandler) generateAndStream(c echo.Context, cfg *config.Config) 
 func (h *DocumentHandler) generateFilename(cfg *config.Config) string {
 	base := cfg.BaseFilename
 	if base == "" {
-		base = "pseudoc_" + time.Now().Format("2006-01-02_15-04-05")
+		base = config.DefaultFilenamePrefix + time.Now().Format(config.DefaultTimestampFormat)
 	}
 
 	return base + cfg.GetFileExtension()
