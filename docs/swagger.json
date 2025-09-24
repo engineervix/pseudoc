@@ -16,7 +16,7 @@
             "name": "BSD-3-Clause",
             "url": "https://github.com/engineervix/pseudoc/blob/main/LICENSE.md"
         },
-        "version": "1.0.0"
+        "version": "1.0.0-alpha.0"
     },
     "host": "localhost:8080",
     "basePath": "/api/v1",

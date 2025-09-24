@@ -11,7 +11,7 @@ import (
 )
 
 // @title Pseudoc API
-// @version 1.0.0
+// @version 1.0.0-alpha.0
 // @description Lorem Ipsum for Documents - Generate placeholder documents for testing and development workflows
 // @termsOfService https://github.com/engineervix/pseudoc
 

@@ -190,7 +190,7 @@ info:
     url: https://github.com/engineervix/pseudoc/blob/main/LICENSE.md
   termsOfService: https://github.com/engineervix/pseudoc
   title: Pseudoc API
-  version: 1.0.0
+  version: 1.0.0-alpha.0
 paths:
   /generate:
     post:
