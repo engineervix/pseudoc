@@ -65,7 +65,22 @@ jobs:
           if [ "$GOOS" = "windows" ]; then
             output_name="$output_name.exe"
           fi
-          go build -o "bin/$output_name" ./cmd/pseudoc
+
+          # Get build information
+          VERSION=${{ github.ref_name }}
+          # remove 'v' prefix if it exists
+          if [[ $VERSION == v* ]]; then
+            VERSION=${VERSION:1}
+          fi
+          BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          GIT_COMMIT=$(git rev-parse --short HEAD)
+
+          # Build with ldflags to embed version info
+          go build -ldflags "\
+              -X 'github.com/engineervix/pseudoc/internal/version.Version=${VERSION}' \
+              -X 'github.com/engineervix/pseudoc/internal/version.Date=${BUILD_TIME}' \
+              -X 'github.com/engineervix/pseudoc/internal/version.Commit=${GIT_COMMIT}'" \
+              -o "bin/$output_name" ./cmd/pseudoc
         shell: bash
 
       - name: Upload binary
