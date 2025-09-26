@@ -55,6 +55,18 @@ jobs:
         with:
           go-version-file: "go.mod"
 
+      - name: Install UPX
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get update
+            sudo apt-get install -y upx-ucl
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            brew install upx
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            choco install upx
+          fi
+        shell: bash
+
       - name: Build
         env:
           GOOS: ${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'macos-latest' && 'darwin' || 'linux' }}
@@ -62,8 +74,9 @@ jobs:
         run: |
           mkdir -p bin
           output_name="pseudoc-$GOOS-$GOARCH"
+          binary_path="bin/$output_name"
           if [ "$GOOS" = "windows" ]; then
-            output_name="$output_name.exe"
+            binary_path="$binary_path.exe"
           fi
 
           # Get build information
@@ -75,12 +88,16 @@ jobs:
           BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           GIT_COMMIT=$(git rev-parse --short HEAD)
 
-          # Build with ldflags to embed version info
+          # Build with ldflags to embed version info and strip debug info
           go build -ldflags "\
+              -s -w \
               -X 'github.com/engineervix/pseudoc/internal/version.Version=${VERSION}' \
               -X 'github.com/engineervix/pseudoc/internal/version.Date=${BUILD_TIME}' \
               -X 'github.com/engineervix/pseudoc/internal/version.Commit=${GIT_COMMIT}'" \
-              -o "bin/$output_name" ./cmd/pseudoc
+              -o "$binary_path" ./cmd/pseudoc
+
+          # Compress the binary with upx
+          upx --best --lzma "$binary_path"
         shell: bash
 
       - name: Upload binary
