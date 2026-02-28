@@ -60,9 +60,9 @@ build-release:
     BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
     GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "dev")
 
-    # Build with ldflags to embed version info and strip debug info
+
+    # Build with ldflags to embed version info
     go build -ldflags "\
-        -s -w \
         -X 'github.com/engineervix/pseudoc/internal/version.Version=${VERSION}' \
         -X 'github.com/engineervix/pseudoc/internal/version.Date=${BUILD_TIME}' \
         -X 'github.com/engineervix/pseudoc/internal/version.Commit=${GIT_COMMIT}'" \
@@ -72,15 +72,6 @@ build-release:
     echo "  Version: ${VERSION}"
     echo "  Build Time: ${BUILD_TIME}"
     echo "  Git Commit: ${GIT_COMMIT}"
-
-    # Compress the binary with upx
-    if command -v upx > /dev/null 2>&1; then
-        echo "Compressing binary with upx..."
-        upx --best --lzma bin/pseudoc
-    else
-        echo "Warning: upx command not found. Skipping compression."
-        echo "Install upx to further reduce binary size."
-    fi
 
 # 🔨 Build for multiple platforms using the build script
 build-multi:
