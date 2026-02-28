@@ -4,7 +4,7 @@ go 1.24.5
 
 require (
 	github.com/gomutex/godocx v0.1.5
-	github.com/johnfercher/maroto/v2 v2.3.1
+	github.com/johnfercher/maroto/v2 v2.3.3
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/swaggo/swag v1.16.6
@@ -44,6 +44,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/pdfcpu/pdfcpu v0.6.0 // indirect
+	github.com/phpdave11/gofpdf v1.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.4 // indirect
