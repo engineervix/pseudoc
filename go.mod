@@ -1,6 +1,6 @@
 module github.com/engineervix/pseudoc
 
-go 1.24.5
+go 1.25.0
 
 require (
 	github.com/gomutex/godocx v0.1.5
@@ -9,7 +9,7 @@ require (
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/swaggo/swag v1.16.6
 	github.com/xuri/excelize/v2 v2.10.1
-	golang.org/x/time v0.14.0
+	golang.org/x/time v0.15.0
 )
 
 require (
