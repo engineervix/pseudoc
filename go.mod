@@ -6,7 +6,7 @@ require (
 	github.com/gomutex/godocx v0.1.5
 	github.com/johnfercher/maroto/v2 v2.4.0
 	github.com/labstack/echo/v4 v4.15.2
-	github.com/swaggo/echo-swagger v1.5.2
+	github.com/swaggo/echo-swagger/v2 v2.0.1
 	github.com/swaggo/echo-swagger/v2 v2.0.1
 	github.com/swaggo/swag v1.16.6
 	github.com/xuri/excelize/v2 v2.10.1
