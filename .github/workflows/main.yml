@@ -121,7 +121,7 @@ jobs:
           path: artifacts
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ steps.release_info.outputs.release_name }}
           body_path: ../LATEST_RELEASE_NOTES.md
