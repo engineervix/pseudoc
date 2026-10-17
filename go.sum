@@ -70,6 +70,8 @@ github.com/johnfercher/maroto/v2 v2.3.3 h1:oeXsBnoecaMgRDwN0Cstjoe4rug3lKpOanuxu
 github.com/johnfercher/maroto/v2 v2.3.3/go.mod h1:KNv102TwUrlVgZGukzlIbhkG6l/WaCD6pzu6aWGVjBI=
 github.com/johnfercher/maroto/v2 v2.4.0 h1:Nc/jA2RCZvNZESrQj41HJOgtkwmerSHd5FUbP4dRrIE=
 github.com/johnfercher/maroto/v2 v2.4.0/go.mod h1:Nnxa3g4f+vzdx/u/dUgx/52HnrCOCt5QBPSdeSlkFZQ=
+github.com/johnfercher/maroto/v2 v2.4.3 h1:+ohV5ajTnPqMyinKeUI4AhXPrl6RZUj3SVFq9nzPqrg=
+github.com/johnfercher/maroto/v2 v2.4.3/go.mod h1:LvTulDnWfQTWH1D7494xuenYrgkOnsAh5xkelzesKvA=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/jung-kurt/gofpdf v1.0.0/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
@@ -186,6 +188,8 @@ golang.org/x/image v0.25.0 h1:Y6uW6rH1y5y/LK1J8BPWZtr6yZ7hrsy6hFrXjgsc2fQ=
 golang.org/x/image v0.25.0/go.mod h1:tCAmOEGthTtkalusGp1g3xa2gke8J6c2N565dTyl9Rs=
 golang.org/x/image v0.37.0 h1:ZiRjArKI8GwxZOoEtUfhrBtaCN+4b/7709dlT6SSnQA=
 golang.org/x/image v0.37.0/go.mod h1:/3f6vaXC+6CEanU4KJxbcUZyEePbyKbaLoDOe4ehFYY=
+golang.org/x/image v0.41.0 h1:8wS72eGJMJaBxK6okTzd4WaXumUlTVlb753MlsSvTCo=
+golang.org/x/image v0.41.0/go.mod h1:uIc348UZMSvS5Z65CVZ7iDPaNobNFEPeJ4kbqTOszmA=
 golang.org/x/mod v0.28.0 h1:gQBtGhjxykdjY9YhZpSlZIsbnaE2+PgjfLWUQTnoZ1U=
 golang.org/x/mod v0.28.0/go.mod h1:yfB/L0NOf/kmEbXjzCPOx1iK1fRutOydrCMsqRhEBxI=
 golang.org/x/mod v0.30.0 h1:fDEXFVZ/fmCKProc/yAXXUijritrDzahmwwefnjoPFk=
