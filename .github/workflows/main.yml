@@ -104,7 +104,7 @@ jobs:
 
       - uses: extractions/setup-just@v4
         with:
-          just-version: 1.32.0
+          just-version: 1.59.0
 
       - name: Generate release notes
         run: just release-notes
