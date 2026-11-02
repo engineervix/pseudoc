@@ -5,7 +5,8 @@ go 1.26.1
 require (
 	github.com/gomutex/godocx v0.1.5
 	github.com/johnfercher/maroto/v2 v2.4.0
-	github.com/labstack/echo/v4 v4.16.3
+	github.com/labstack/echo/v4 v4.9.0
+	github.com/labstack/echo/v5 v5.4.4
 	github.com/swaggo/echo-swagger v1.5.2
 	github.com/swaggo/echo-swagger/v2 v2.0.1
 	github.com/swaggo/swag v1.16.6
@@ -34,6 +35,7 @@ require (
 	github.com/go-openapi/swag/stringutils v0.24.0 // indirect
 	github.com/go-openapi/swag/typeutils v0.24.0 // indirect
 	github.com/go-openapi/swag/yamlutils v0.24.0 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hhrutter/lzw v1.0.0 // indirect
 	github.com/hhrutter/pkcs7 v0.2.0 // indirect
